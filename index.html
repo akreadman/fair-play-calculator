@@ -21,8 +21,9 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Ar
 header{background:linear-gradient(135deg,#1f8f4e,#156b3a);color:#fff;padding:20px 16px}
 header h1{margin:0;font-size:1.45rem}
 header p{margin:4px 0 0;opacity:.9;font-size:.95rem}
-main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px}
-@media(min-width:900px){main{grid-template-columns:360px 1fr}.full{grid-column:1/-1}}
+main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+main>.card{min-width:0}
+@media(min-width:900px){main{grid-template-columns:360px minmax(0,1fr)}.full{grid-column:1/-1}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 h2{font-size:1.1rem;margin:0 0 12px}
 h3{font-size:1rem;margin:16px 0 8px}
@@ -110,6 +111,37 @@ tr.current-block td:first-child{box-shadow:inset 4px 0 0 #e0a800}
 #planOut .tag[data-id]{cursor:grab;user-select:none;-webkit-user-select:none;padding:3px 8px 3px 2px}
 #planOut .tag.gk{cursor:not-allowed;padding-left:6px}
 #planOut .tag .grip{font-size:.85rem;padding:2px 3px}
+/* Larger, phone-friendly text in the rotation plan */
+#planOut{font-size:1rem}
+#planOut h3{font-size:1.15rem}
+#planOut .note{font-size:.95rem}
+#planOut table{font-size:1rem}
+#planOut th{font-size:1rem}
+#planOut td{padding:9px 8px}
+#planOut .tag{font-size:.95rem;padding:4px 10px;margin:2px 3px 2px 0;line-height:1.3}
+#planOut .tag[data-id]{display:inline-flex;align-items:center;min-height:36px;padding:4px 10px 4px 4px;border-radius:999px}
+#planOut .tag.gk{padding-left:8px}
+#planOut .tag .grip{font-size:1.05rem;padding:4px 5px}
+#planOut .badge{font-size:.9rem;padding:3px 10px}
+#planOut .stat b{font-size:1.4rem}
+#planOut .stat span{font-size:.9rem}
+#planOut label{font-size:.95rem}
+#planOut select{font-size:1rem;min-height:44px}
+#planOut td.zone{min-width:180px}
+#planOut tr[data-row] td:first-child{white-space:nowrap}
+@media(max-width:700px){
+  #planOut,#planOut table,#planOut th{font-size:1.0625rem}
+  #planOut td{padding:10px 8px}
+  #planOut .tag{font-size:1.0625rem}
+  #planOut .tag[data-id]{min-height:42px;padding:6px 12px 6px 4px}
+  #planOut .tag.gk{padding-left:10px}
+  #planOut .tag .grip{font-size:1.2rem;padding:6px 7px}
+  #planOut .note{font-size:1rem}
+  #planOut .badge{font-size:1rem}
+  #planOut td.zone{min-width:220px}
+  #planOut button.small{min-height:40px;font-size:1rem}
+  #planOut label{font-size:1rem}
+}
 .tag .lockgrip{cursor:not-allowed}
 .tag.sel{outline:2px solid #1d4fa8;outline-offset:1px}
 .dragging{opacity:.35}
@@ -129,6 +161,11 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   .watchtime{font-size:2rem}
   .teamname{border:none}
   tr.current-block td{background:none}
+  #planOut,#planOut table,#planOut th{font-size:10.5pt}
+  #planOut td{padding:4px 6px}
+  #planOut .tag,#planOut .tag[data-id]{font-size:10pt;min-height:0;padding:1px 6px;margin:1px 2px 1px 0}
+  #planOut td.zone{min-width:0}
+  #planOut h3{font-size:12pt}
   main{display:block;padding:0}
   .card{border:none;box-shadow:none;padding:0;margin-bottom:14px;break-inside:avoid}
   .print-only{display:block}
