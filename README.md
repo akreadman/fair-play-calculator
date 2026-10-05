@@ -5,7 +5,7 @@ A single-page, offline-capable web app (installable PWA) for grassroots football
 - **Fair playing time** – squad list (drag to reorder, mark absent / GK-able), match format, periods and sub windows; generates a rotation plan that shares minutes evenly, avoids anyone sitting out twice in a row, and locks each period's goalkeeper on for the whole period. Drag or tap to swap players manually.
 - **Match day** – stopwatch (survives reloads), tap a player to log goals and assists with timestamps, away score +/−, event log with undo.
 - **Season tracker** – saves minutes, goals and assists per match; shows season totals and who should get extra time next game.
-- Print-friendly plan. All data stays in your browser (localStorage).
+- Print-friendly plan. All data stays in your browser (localStorage); use **Export data** / **Import data** to back up or move it to another device (JSON file).
 
 ![Screenshot](screenshot.png)
 

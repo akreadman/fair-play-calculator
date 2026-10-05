@@ -234,6 +234,9 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <p>The plan is built block by block: in each sub window, the players with the fewest minutes so far go on. Ties are broken in favour of anyone who sat out the previous block (so nobody sits out twice in a row where it can be avoided) and, if switched on, anyone short on season minutes. When the squad size doesn't divide evenly, some players will get one block more than others — the summary shows the spread.</p>
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
+  <h3>Your data</h3>
+  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match and season) or restore one on another device.</p>
+  <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
   <div class="actions"><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
 </section>
 </main>
@@ -413,9 +416,55 @@ var FPT = (function(){
   function score(md){ var hm=0,aw=0; md.events.forEach(function(e){ if(e.type==='goal'||e.type==='og') hm++; else if(e.type==='away') aw++; }); return {home:hm,away:aw}; }
   function playerStats(md){ var o={}; md.events.forEach(function(e){ if(!e.playerId) return; o[e.playerId]=o[e.playerId]||{goals:0,assists:0};
     if(e.type==='goal') o[e.playerId].goals++; else if(e.type==='assist') o[e.playerId].assists++; }); return o; }
+  // ---------- Export / import ----------
+  var APP_ID='fair-play-calculator', APP_VERSION='1.1.0', SCHEMA=1;
+  function pad2(n){return (n<10?'0':'')+n;}
+  function exportFilename(d){ return 'fair-play-'+d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'-'+pad2(d.getHours())+pad2(d.getMinutes())+'.json'; }
+  function buildExport(state, nowMs){
+    var data=JSON.parse(JSON.stringify(state)); // deep copy of everything the app stores
+    var name={}; (data.players||[]).forEach(function(p){name[p.id]=p.name;});
+    var ids=(data.players||[]).map(function(p){return p.id;});
+    var sum=seasonSummary(ids,data.matches||[]);
+    var md=data.md||{home:'',away:'',events:[]}, clock=data.clock||newClock();
+    var ps=playerStats(md);
+    return {
+      app:APP_ID, schema:SCHEMA, appVersion:APP_VERSION, exportedAt:new Date(nowMs).toISOString(),
+      data:data,
+      summary:{ // human-readable extras (ignored on import; recalculated by the app)
+        currentMatch:{home:md.home,away:md.away,score:score(md),
+          clock:{period:clock.period,running:!!clock.running,periodElapsed:fmtClock(periodElapsed(clock,nowMs)),matchElapsed:fmtClock(matchElapsed(clock,nowMs))},
+          goalsAssists:Object.keys(ps).map(function(id){return {id:id,name:name[id]||null,goals:ps[id].goals,assists:ps[id].assists};}),
+          goalkeepers:data.result&&data.result.gkByPeriod?data.result.gkByPeriod.map(function(id,p){return {period:p+1,id:id,name:name[id]||null,chosen:!!(data.gkOverrides&&data.gkOverrides[p])};}):[]},
+        seasonTotals:ids.map(function(id){var o=sum[id];return {id:id,name:name[id],matchesAvailable:o.apps,minutesPlayed:o.played,fairShare:Math.round(o.fair*10)/10,difference:Math.round(o.diff*10)/10,goals:o.goals,assists:o.assists};}),
+        matchesSaved:(data.matches||[]).length
+      }
+    };
+  }
+  // Validate an imported file; returns {ok:true,state} or {ok:false,error}. Never mutates anything.
+  function parseImport(text){
+    var o; try{ o=typeof text==='string'?JSON.parse(text):text; }catch(e){ return {ok:false,error:'The file is not valid JSON.'}; }
+    if(!o||typeof o!=='object') return {ok:false,error:'The file is empty or not an object.'};
+    if(o.app!==APP_ID) return {ok:false,error:'This doesn’t look like a Fair Play Calculator export.'};
+    if(typeof o.schema!=='number'||o.schema>SCHEMA) return {ok:false,error:'This export was made by a newer version of the app – please update first.'};
+    var d=o.data; if(!d||typeof d!=='object') return {ok:false,error:'The export has no data section.'};
+    if(!Array.isArray(d.players)) return {ok:false,error:'The squad list is missing or invalid.'};
+    var seen={};
+    for(var i=0;i<d.players.length;i++){ var p=d.players[i];
+      if(!p||typeof p.id!=='string'||!p.id||typeof p.name!=='string') return {ok:false,error:'Player '+(i+1)+' is invalid.'};
+      if(seen[p.id]) return {ok:false,error:'Duplicate player id in squad.'}; seen[p.id]=1; }
+    if(d.matches!=null&&!Array.isArray(d.matches)) return {ok:false,error:'Season matches are invalid.'};
+    var ms=d.matches||[];
+    for(var j=0;j<ms.length;j++){ var m=ms[j]; if(!m||typeof m!=='object'||typeof m.minutes!=='object'||!m.minutes||!Array.isArray(m.available)||typeof m.matchMins!=='number') return {ok:false,error:'Saved match '+(j+1)+' is invalid.'}; }
+    var nums={onPitch:[1,15],periods:[1,8],periodMins:[1,60],subsPer:[1,6]};
+    for(var k in nums){ if(d[k]!=null&&(typeof d[k]!=='number'||d[k]<nums[k][0]||d[k]>nums[k][1])) return {ok:false,error:'Setting “'+k+'” is out of range.'}; }
+    if(d.md!=null&&(typeof d.md!=='object'||!Array.isArray(d.md.events))) return {ok:false,error:'The current match data is invalid.'};
+    if(d.clock!=null&&(typeof d.clock!=='object'||typeof d.clock.acc!=='number')) return {ok:false,error:'The stopwatch data is invalid.'};
+    if(d.result!=null&&(typeof d.result!=='object'||!Array.isArray(d.result.plan))) return {ok:false,error:'The rotation plan is invalid.'};
+    return {ok:true,state:JSON.parse(JSON.stringify(d)),meta:{appVersion:o.appVersion,exportedAt:o.exportedAt,players:d.players.length,matches:ms.length}};
+  }
   function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
   function shuffle(arr,rnd){for(var i=arr.length-1;i>0;i--){var j=Math.floor(rnd()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
-  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,clockPause:clockPause,clockNextPeriod:clockNextPeriod,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats};
+  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,clockPause:clockPause,clockNextPeriod:clockNextPeriod,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats,APP_VERSION:APP_VERSION,exportFilename:exportFilename,buildExport:buildExport,parseImport:parseImport};
 })();
 if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 </script>
@@ -737,6 +786,34 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
       goals:goals,assists:assists,score:FPT.score(S.md),events:S.md.events.slice(),home:S.md.home});
     save();renderSeason();toast('Match saved to the season tracker (with goals and assists).');};
   $('seasonOut').addEventListener('click',function(e){var i=e.target.dataset.delmatch;if(i==null)return;if(!confirm('Delete this match from the season?'))return;S.matches.splice(+i,1);save();renderSeason();});
+  // ---------- Export / import ----------
+  function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},2000);}
+  $('exportData').onclick=function(){
+    ensureMd();var t=now(),payload=FPT.buildExport(S,t),name=FPT.exportFilename(new Date(t));
+    var json=JSON.stringify(payload,null,2),blob=new Blob([json],{type:'application/json'});
+    var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+    var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    var file=null;try{file=new File([blob],name,{type:'application/json'});}catch(e){}
+    if((standalone||isIOS)&&file&&navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:'Fair Play Calculator backup'}).then(function(){toast('Backup shared.');})
+        .catch(function(e){if(e&&e.name==='AbortError')return;downloadBlob(blob,name);toast('Downloaded '+name);});
+      return;
+    }
+    downloadBlob(blob,name);toast('Downloaded '+name);
+  };
+  $('importData').onclick=function(){$('importFile').value='';$('importFile').click();};
+  $('importFile').onchange=function(){var f=this.files&&this.files[0];if(!f)return;
+    if(f.size>10*1024*1024){toast('That file is too large to be a backup.');return;}
+    var rd=new FileReader();rd.onerror=function(){toast('Could not read the file.');};
+    rd.onload=function(){var r=FPT.parseImport(String(rd.result));
+      if(!r.ok){alert('Import failed: '+r.error+'\n\nYour current data has not been changed.');return;}
+      var when=r.meta.exportedAt?new Date(r.meta.exportedAt).toLocaleString('en-GB'):'unknown date';
+      if(!confirm('Replace ALL current data with this backup?\n\nExported: '+when+'\nPlayers: '+r.meta.players+' · Saved matches: '+r.meta.matches+'\n\nTip: export your current data first if you might need it.'))return;
+      S=Object.assign(JSON.parse(JSON.stringify(defaults)),r.state);sel=null;lastBlock=null;
+      if(S.md&&S.md.away)$('opponent').value=S.md.away;
+      save();renderAll();toast('Backup restored.');};
+    rd.readAsText(f);};
   $('resetAll').onclick=function(){if(!confirm('Reset squad, settings, plan and season data?'))return;S=JSON.parse(JSON.stringify(defaults));save();renderAll();};
   $('resetSeason').onclick=function(){if(!confirm('Clear all saved season matches?'))return;S.matches=[];save();renderSeason();};
   if(!$('matchDate').value){var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
