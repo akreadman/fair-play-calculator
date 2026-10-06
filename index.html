@@ -111,36 +111,46 @@ tr.current-block td:first-child{box-shadow:inset 4px 0 0 #e0a800}
 #planOut .tag[data-id]{cursor:grab;user-select:none;-webkit-user-select:none;padding:3px 8px 3px 2px}
 #planOut .tag.gk{cursor:not-allowed;padding-left:6px}
 #planOut .tag .grip{font-size:.85rem;padding:2px 3px}
-/* Larger, phone-friendly text in the rotation plan */
-#planOut{font-size:1rem}
-#planOut h3{font-size:1.15rem}
-#planOut .note{font-size:.95rem}
-#planOut table{font-size:1rem}
-#planOut th{font-size:1rem}
-#planOut td{padding:9px 8px}
-#planOut .tag{font-size:.95rem;padding:4px 10px;margin:2px 3px 2px 0;line-height:1.3}
-#planOut .tag[data-id]{display:inline-flex;align-items:center;min-height:36px;padding:4px 10px 4px 4px;border-radius:999px}
-#planOut .tag.gk{padding-left:8px}
-#planOut .tag .grip{font-size:1.05rem;padding:4px 5px}
-#planOut .badge{font-size:.9rem;padding:3px 10px}
-#planOut .stat b{font-size:1.4rem}
-#planOut .stat span{font-size:.9rem}
-#planOut label{font-size:.95rem}
-#planOut select{font-size:1rem;min-height:44px}
-#planOut td.zone{min-width:180px}
+/* Readable, compact rotation plan (fits a phone without sideways scrolling) */
+#planOut{font-size:.95rem}
+#planOut h3{font-size:1.08rem}
+#planOut .note{font-size:.9rem}
+#planOut table{font-size:.95rem}
+#planOut th{font-size:.9rem}
+#planOut td{padding:7px 6px}
+#planOut .tag{font-size:.9rem;padding:3px 8px;margin:2px 3px 2px 0;line-height:1.25}
+#planOut .tag[data-id]{display:inline-flex;align-items:center;min-height:34px;padding:3px 9px 3px 3px;border-radius:999px;max-width:100%;overflow-wrap:break-word}
+#planOut .tag.gk{padding-left:7px}
+#planOut .tag .grip{font-size:.95rem;padding:3px 4px}
+#planOut .badge{font-size:.85rem;padding:2px 9px}
+#planOut .stat b{font-size:1.3rem}
+#planOut .stat span{font-size:.85rem}
+#planOut label{font-size:.9rem}
+#planOut select{font-size:1rem;min-height:42px}
 #planOut tr[data-row] td:first-child{white-space:nowrap}
+#planOut .sm,#planOut .btime{display:none}
 @media(max-width:700px){
-  #planOut,#planOut table,#planOut th{font-size:1.0625rem}
-  #planOut td{padding:10px 8px}
-  #planOut .tag{font-size:1.0625rem}
-  #planOut .tag[data-id]{min-height:42px;padding:6px 12px 6px 4px}
-  #planOut .tag.gk{padding-left:10px}
-  #planOut .tag .grip{font-size:1.2rem;padding:6px 7px}
-  #planOut .note{font-size:1rem}
-  #planOut .badge{font-size:1rem}
-  #planOut td.zone{min-width:220px}
-  #planOut button.small{min-height:40px;font-size:1rem}
-  #planOut label{font-size:1rem}
+  main{padding:10px}
+  main>.card{padding:12px}
+  #planOut,#planOut table{font-size:14px}
+  #planOut th{font-size:13px;padding:6px 4px}
+  #planOut td{padding:6px 4px}
+  #planOut .tag{font-size:14px;margin:2px 2px 2px 0}
+  #planOut .tag[data-id]{min-height:34px;padding:2px 7px 2px 1px}
+  #planOut .tag.gk{padding-left:6px}
+  #planOut .tag .grip{font-size:12px;padding:3px 3px;letter-spacing:-1px}
+  #planOut .note,#planOut label{font-size:13px}
+  #planOut .badge{font-size:13px}
+  #planOut button.small{min-height:36px;font-size:14px}
+  #planOut .lg,#planOut .tcol,#planOut .gktxt{display:none}
+  #planOut .sm{display:inline}
+  #planOut .btime{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
+  #planOut table.blocks{table-layout:auto;width:100%}
+  #planOut table.blocks td{overflow-wrap:break-word}
+  #planOut table.blocks td.zone[data-zone=off]{width:1%}
+  #planOut table.blocks td:last-child{font-size:13px}
+  #planOut table.mins th,#planOut table.mins td{padding:6px 4px}
+  #planOut table.mins .bar{min-width:36px}
 }
 .tag .lockgrip{cursor:not-allowed}
 .tag.sel{outline:2px solid #1d4fa8;outline-offset:1px}
@@ -588,11 +598,11 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         '<p class="print-only"><b>Goalkeepers:</b> '+R.gkByPeriod.map(function(id,p){return esc(periodName(p))+' – '+esc(nameOf(id));}).join(' · ')+'</p>';
     }
     h+='<h3>Block by block</h3><p class="note no-print" style="margin-top:0">✋ Drag a player onto another (or tap one, then another) to swap them within a block. Minutes update live. '+
-      (R.edited?'<span class="badge b-warn">Manually adjusted</span> <button class="small" id="discardEdits">Discard changes</button>':'')+'</p><div class="tablewrap"><table><thead><tr><th>Block</th><th>Time</th><th>On the pitch</th><th>Off</th><th>Changes</th></tr></thead><tbody>';
+      (R.edited?'<span class="badge b-warn">Manually adjusted</span> <button class="small" id="discardEdits">Discard changes</button>':'')+'</p><div class="tablewrap"><table class="blocks"><thead><tr><th>Block</th><th class="tcol">Time</th><th><span class="lg">On the pitch</span><span class="sm">On</span></th><th>Off</th><th><span class="lg">Changes</span><span class="sm">Subs</span></th></tr></thead><tbody>';
     var prev=null;
     R.plan.forEach(function(seg,j){
       var label=periodName(seg.period)+(S.subsPer>1||R.plan.filter(function(s){return s.period===seg.period;}).length>1?' · '+(seg.sub+1):'');
-      var chip=function(id,cls){var g=id===seg.gk;return '<span class="tag '+(g?'gk':cls)+(sel&&sel.j===j&&sel.id===id?' sel':'')+'" data-id="'+id+'" data-block="'+j+'"'+(g?' title="Locked in goal for this period"':'')+'>'+(g?'<span class="grip lockgrip" aria-hidden="true">🔒</span>':'<span class="grip" aria-hidden="true">⠿</span>')+(g?'🧤 GK · ':'')+esc(nameOf(id))+'</span>';};
+      var chip=function(id,cls){var g=id===seg.gk;return '<span class="tag '+(g?'gk':cls)+(sel&&sel.j===j&&sel.id===id?' sel':'')+'" data-id="'+id+'" data-block="'+j+'"'+(g?' title="Locked in goal for this period"':'')+'>'+(g?'<span class="grip lockgrip" aria-hidden="true">🔒</span>':'<span class="grip" aria-hidden="true">⠿</span>')+(g?'🧤<span class="gktxt"> GK ·</span> ':'')+esc(nameOf(id))+'</span>';};
       var on=seg.on.map(function(id){return chip(id,'on');}).join('');
       var off=seg.off.map(function(id){return chip(id,'off');}).join('')||'<span class="note">—</span>';
       var ch='<span class="note">Kick-off</span>';
@@ -600,11 +610,11 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         ch=(ins.length?'<div class="on">↑ '+ins.map(function(i){return esc(nameOf(i));}).join(', ')+'</div>':'')+(outs.length?'<div class="off">↓ '+outs.map(function(i){return esc(nameOf(i));}).join(', ')+'</div>':'');
         if(prev.gk!==seg.gk&&seg.gk)ch+='<div>🧤 '+esc(nameOf(seg.gk))+' in goal</div>';
         if(!ch)ch='<span class="note">No changes</span>';}
-      h+='<tr data-row="'+j+'"'+(j===curBlockIdx()?' class="current-block"':'')+'><td><b>'+esc(label)+'</b></td><td class="note" style="white-space:nowrap">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+' min</td><td class="zone" data-zone="on" data-block="'+j+'">'+on+'</td><td class="zone" data-zone="off" data-block="'+j+'">'+off+'</td><td>'+ch+'</td></tr>';
+      h+='<tr data-row="'+j+'"'+(j===curBlockIdx()?' class="current-block"':'')+'><td><b>'+esc(label)+'</b><span class="btime">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+'′</span></td><td class="note tcol" style="white-space:nowrap">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+' min</td><td class="zone" data-zone="on" data-block="'+j+'">'+on+'</td><td class="zone" data-zone="off" data-block="'+j+'">'+off+'</td><td>'+ch+'</td></tr>';
       prev=seg;
     });
     h+='</tbody></table></div>';
-    h+='<h3>Minutes per player</h3><div class="tablewrap"><table><thead><tr><th>Player</th><th class="num">Minutes</th><th class="num">vs fair share</th><th>Share</th><th class="num">Blocks off</th>'+(R.gkMode==='rotate'?'<th class="num">GK periods</th>':'')+'</tr></thead><tbody>';
+    h+='<h3>Minutes per player</h3><div class="tablewrap"><table class="mins"><thead><tr><th>Player</th><th class="num"><span class="lg">Minutes</span><span class="sm">Mins</span></th><th class="num"><span class="lg">vs fair share</span><span class="sm">+/−</span></th><th>Share</th><th class="num"><span class="lg">Blocks off</span><span class="sm">Off</span></th>'+(R.gkMode==='rotate'?'<th class="num"><span class="lg">GK periods</span><span class="sm">GK</span></th>':'')+'</tr></thead><tbody>';
     ids.slice().sort(function(a,b){return R.minutes[b]-R.minutes[a]||nameOf(a).localeCompare(nameOf(b));}).forEach(function(id){
       var m=R.minutes[id], target=id===R.fixedGk?R.matchMins:R.outfieldFair, d=m-target;
       var offN=R.plan.filter(function(s){return s.off.indexOf(id)>=0;}).length;
