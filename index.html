@@ -581,6 +581,14 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     S.potmHistory=(S.matches||[]).filter(function(m){return m.potm&&m.potm.names&&m.potm.names.length;}).map(function(m,i){
       return {id:'hm'+i,date:m.date||null,opponent:m.opponent||'',ids:(m.potm.ids||[]).slice(),names:m.potm.names.slice(),notes:m.potm.notes||'',savedAt:null};});
     if(S.potmHistory.length)localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}})();
+  // v1.6.1: one-time entry Alex asked for (9 Nov 2026) – runs once per browser that already has saved data, guarded by a flag
+  (function(){try{if(S.potmSeeded20261109)return;if(!localStorage.getItem(KEY)){S.potmSeeded20261109=true;return;} // brand-new browsers don't get it
+    var date='2026-11-09', names=['George','Dhillon','Harley','Harry'], H=Array.isArray(S.potmHistory)?S.potmHistory:(S.potmHistory=[]);
+    var norm=function(a){return a.map(function(n){return String(n||'').trim().toLowerCase();}).sort().join('|');};
+    var exists=H.some(function(e){return e&&e.date===date&&Array.isArray(e.names)&&norm(e.names)===norm(names);});
+    if(!exists){var ids=names.map(function(n){var p=(S.players||[]).find(function(x){return String(x.name||'').trim().toLowerCase()===n.toLowerCase();});return p?p.id:null;});
+      H.push({id:'hseed20261109',date:date,opponent:'',ids:ids,names:names.slice(),notes:'',savedAt:'2026-11-09T21:45:00.000Z'});}
+    S.potmSeeded20261109=true;localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}})();
   function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.players)return Object.assign({},defaults,s);}catch(e){}return JSON.parse(JSON.stringify(defaults));}
   function ensureMd(){ if(!S.clock) S.clock=FPT.newClock(); if(!S.md) S.md={home:'My team',away:'',events:[]}; }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
