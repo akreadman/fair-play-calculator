@@ -295,9 +295,9 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
   <h3>Your data</h3>
-  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match and season) or restore one on another device.</p>
+  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match and season) or restore one on another device. “Clear current data” keeps your squad and match set-up but clears the plan, match day and season.</p>
   <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
-  <div class="actions"><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
+  <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad and match set-up; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
 </section>
 </main>
 <div id="sheet" class="sheet" hidden><div class="sheet-backdrop" data-close="1"></div><div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><h3 id="sheetTitle"></h3><div id="sheetBody"></div></div></div>
@@ -951,6 +951,15 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
       if(S.md&&S.md.away)$('opponent').value=S.md.away;
       save();renderAll();toast('Backup restored.');};
     rd.readAsText(f);};
+  // Clear current data: keep Squad (players, Here/GK ticks, order) and Match set-up; clear everything else.
+  $('clearCurrent').onclick=function(){
+    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log and ALL saved season matches.\n\nTip: export your data first if you might need it.'))return;
+    var home=S.md&&S.md.home!=null?S.md.home:'My team';
+    S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];
+    S.clock=FPT.newClock();S.alertFired=[];S.md={home:home,away:'',events:[]};
+    sel=null;lastBlock=null;$('subAlertBar').hidden=true;try{if(canVibrate)navigator.vibrate(0);}catch(e){}
+    $('opponent').value='';var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    save();renderAll();tick();toast('Current data cleared – squad and match set-up kept.');};
   $('resetAll').onclick=function(){if(!confirm('Reset squad, settings, plan and season data?'))return;S=JSON.parse(JSON.stringify(defaults));save();renderAll();};
   $('resetSeason').onclick=function(){if(!confirm('Clear all saved season matches?'))return;S.matches=[];save();renderSeason();};
   if(!$('matchDate').value){var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
