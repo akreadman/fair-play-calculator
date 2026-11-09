@@ -1,6 +1,6 @@
 /* Fair Play Calculator service worker – cache-first app shell.
    Bump VERSION on every release so clients pick up the new files. */
-const VERSION = 'v1.6.2';
+const VERSION = 'v1.6.3';
 const CACHE = 'fair-play-' + VERSION;
 const SHELL = [
   './',

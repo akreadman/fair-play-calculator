@@ -31,6 +31,16 @@ main>.card{min-width:0}
 @media(min-width:900px){main{grid-template-columns:360px minmax(0,1fr)}.full{grid-column:1/-1}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 h2{font-size:1.1rem;margin:0 0 12px}
+/* collapsible cards (Squad, Match set-up) */
+.ctoggle{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;margin:-8px 0 4px;padding:6px 4px;border:none;background:none;font:inherit;font-size:1.1rem;font-weight:700;color:var(--ink);text-align:left;cursor:pointer;touch-action:manipulation}
+.ctoggle:hover{background:none}
+.ctoggle .chint{flex:1;min-width:0;font-size:.85rem;font-weight:400;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.ctoggle .chev{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--line);border-radius:50%;font-size:.9rem;color:var(--accent);transition:transform .15s}
+.collapsible.collapsed .ctoggle .chev{transform:rotate(-90deg)}
+.collapsible.collapsed>:not(h2){display:none!important}
+.collapsible.collapsed>h2{margin-bottom:0}
+.collapsible.collapsed>h2 .ctoggle{margin:-8px 0}
+.collapsible:not(.collapsed) .chint{visibility:hidden}
 h3{font-size:1rem;margin:16px 0 8px}
 label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
 input[type=text],input[type=number],input[type=date],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
@@ -215,8 +225,8 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 </nav>
 
 <main>
-<section class="card no-print" id="squadCard">
-  <h2>Squad</h2>
+<section class="card no-print collapsible" id="squadCard" data-collapse="squad">
+  <h2><button type="button" class="ctoggle" aria-expanded="true" aria-controls="squadCard"><span>Squad</span><span class="chint" id="squadHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <div class="row">
     <input type="text" id="newName" placeholder="Player name" aria-label="New player name">
     <button class="primary" id="addPlayer">Add</button>
@@ -225,8 +235,8 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <ul class="players" id="playerList"></ul>
 </section>
 
-<section class="card no-print">
-  <h2>Match set-up</h2>
+<section class="card no-print collapsible" id="setupCard" data-collapse="setup">
+  <h2><button type="button" class="ctoggle" aria-expanded="true" aria-controls="setupCard"><span>Match set-up</span><span class="chint" id="setupHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <div class="grid2">
     <div><label for="format">Format</label>
       <select id="format"><option value="5">5-a-side</option><option value="7">7-a-side</option><option value="9">9-a-side</option><option value="11">11-a-side</option><option value="custom">Custom…</option></select></div>
@@ -635,6 +645,11 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   function fmt(m){return (Math.round(m*10)/10).toString().replace(/\.0$/,'');}
   function clampInt(v,lo,hi,d){v=parseInt(v,10);if(isNaN(v))return d;return Math.max(lo,Math.min(hi,v));}
 
+  function renderCollapse(){ S.collapsed=S.collapsed&&typeof S.collapsed==='object'?S.collapsed:{};
+    document.querySelectorAll('.collapsible[data-collapse]').forEach(function(sec){var c=!!S.collapsed[sec.dataset.collapse];sec.classList.toggle('collapsed',c);var b=sec.querySelector('.ctoggle');if(b)b.setAttribute('aria-expanded',String(!c));});
+    var here=S.players.filter(function(p){return !p.absent;}).length,n=S.players.length;
+    $('squadHint').textContent=n+' player'+(n===1?'':'s')+(here!==n?' · '+here+' here':'');
+    $('setupHint').textContent=S.onPitch+'-a-side · '+S.periods+' × '+S.periodMins+' min'; }
   function renderPlayers(){
     var ul=$('playerList');
     if(!S.players.length){ul.innerHTML='<li class="note" style="border:none">No players yet.</li>';}
@@ -647,7 +662,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         '<button class="small danger" data-f="del" aria-label="Remove '+esc(p.name)+'">✕</button></li>';
     }).join('');
     if(typeof renderGrid==='function'&&$('mdGrid'))renderGrid();
-    renderPotm();
+    renderPotm();renderCollapse();
     var sel=$('fixedGk'), avail=S.players.filter(function(p){return !p.absent;});
     sel.innerHTML='<option value="">— choose —</option>'+avail.map(function(p){return '<option value="'+p.id+'"'+(p.id===S.fixedGkId?' selected':'')+'>'+esc(p.name||'(unnamed)')+'</option>';}).join('');
   }
@@ -656,6 +671,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     $('onPitch').value=S.onPitch;$('periods').value=S.periods;$('periodMins').value=S.periodMins;$('subsPer').value=S.subsPer;
     $('gkMode').value=S.gkMode;$('useSeason').checked=!!S.useSeason;
     $('fixedGkWrap').style.display=S.gkMode==='fixed'?'':'none';
+    renderCollapse();
   }
   function seasonMins(){var o={};S.matches.forEach(function(m){Object.keys(m.minutes).forEach(function(id){o[id]=(o[id]||0)+m.minutes[id];});});return o;}
   function generate(){
@@ -762,6 +778,8 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   // events
   function addPlayer(){var n=$('newName').value.trim();if(!n)return;S.players.push({id:uid(),name:n,absent:false,gk:false});$('newName').value='';save();renderPlayers();$('newName').focus();}
   $('addPlayer').onclick=addPlayer;
+  document.querySelectorAll('.collapsible .ctoggle').forEach(function(b){b.addEventListener('click',function(){var sec=b.closest('.collapsible'),k=sec.dataset.collapse;
+    S.collapsed=S.collapsed&&typeof S.collapsed==='object'?S.collapsed:{};S.collapsed[k]=!S.collapsed[k];save();renderCollapse();});});
   $('newName').addEventListener('keydown',function(e){if(e.key==='Enter')addPlayer();});
   $('playerList').addEventListener('input',function(e){var li=e.target.closest('li[data-id]');if(!li)return;var p=S.players.find(function(x){return x.id===li.dataset.id;});
     if(e.target.dataset.f==='name'){p.name=e.target.value;save();var o=$('fixedGk').querySelector('option[value="'+p.id+'"]');if(o)o.textContent=p.name;renderPotm();}});
