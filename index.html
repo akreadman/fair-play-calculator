@@ -332,9 +332,9 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <p>The plan is built block by block: in each sub window, the players with the fewest minutes so far go on. Ties are broken in favour of anyone who sat out the previous block (so nobody sits out twice in a row where it can be avoided) and, if switched on, anyone short on season minutes. When the squad size doesn't divide evenly, some players will get one block more than others — the summary shows the spread.</p>
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
-  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match, tracker and season) or restore one on another device. “Clear current data” keeps your squad, match set-up and the Player of the match tracker, but clears the plan, match day, current player of the match picks and season.</p>
+  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match, tracker and season) or restore one on another device. “Clear current data” keeps your squad, match set-up, saved season matches and the Player of the match tracker, and clears only the current match: the plan, match day and current player of the match picks.</p>
   <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
-  <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad, match set-up and player of the match tracker; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
+  <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad, match set-up, season data and player of the match tracker; clears the plan, match day and current player of the match picks">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
 </section>
 </main>
 <div id="sheet" class="sheet" hidden><div class="sheet-backdrop" data-close="1"></div><div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><h3 id="sheetTitle"></h3><div id="sheetBody"></div></div></div>
@@ -1025,10 +1025,10 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     rd.readAsText(f);};
   // Clear current data: keep Squad (players, Here/GK ticks, order) and Match set-up; clear everything else.
   $('clearCurrent').onclick=function(){
-    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log, the current player of the match picks and notes, and ALL saved season matches.\n\nThe Player of the match tracker is kept (any current pick is added to it first).\n\nTip: export your data first if you might need it.'))return;
+    if(!confirm('Clear current match data?\n\nKept: squad, match set-up, saved season matches and the Player of the match tracker (any current pick is added to it first).\n\nCleared: the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log and the current player of the match picks and notes.'))return;
     recordPotm(); // keep this match's pick in the tracker before clearing
     var home=S.md&&S.md.home!=null?S.md.home:'My team';
-    S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];S.potm={ids:[],names:{},notes:''};
+    S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.potm={ids:[],names:{},notes:''};
     S.clock=FPT.newClock();S.md={home:home,away:'',events:[]};
     sel=null;lastBlock=null;
     $('opponent').value='';var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
