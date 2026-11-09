@@ -100,6 +100,16 @@ button.big2{min-height:48px;padding:10px 18px;font-size:1rem}
 .mdgrid button.onp{border-color:var(--accent);background:var(--accent2)}
 .mdgrid button small{color:var(--muted);font-size:.78rem}
 .mdcols{display:grid;gap:16px}
+/* Player of the match */
+.potmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.potmgrid button{min-height:52px;text-align:left;padding:8px 10px;display:flex;align-items:center;gap:8px;touch-action:manipulation}
+.potmgrid button .star{font-size:1.2rem;filter:grayscale(1);opacity:.35}
+.potmgrid button[aria-pressed=true]{border-color:#e0a800;background:#fff6d6;font-weight:600;box-shadow:inset 0 0 0 1px #e0a800}
+.potmgrid button[aria-pressed=true] .star{filter:none;opacity:1}
+.potmgrid button small{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
+textarea{width:100%;min-height:96px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink);resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.potmline{margin-top:3px;font-size:.82rem;color:var(--muted);white-space:pre-line;min-width:140px}
 @media(min-width:800px){.mdcols{grid-template-columns:1.4fr 1fr}}
 .evlog{list-style:none;padding:0;margin:0;display:grid;gap:6px}
 .evlog li{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
@@ -269,6 +279,15 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   </div>
 </section>
 
+<section class="card full no-print" id="potmCard">
+  <h2>⭐ Player of the match</h2>
+  <p class="note" style="margin-top:0">Tap to pick one or more players. Tap again to unpick.</p>
+  <div class="potmgrid" id="potmGrid"></div>
+  <p class="note" id="potmSummary" style="margin:8px 0 0"></p>
+  <div style="margin-top:12px"><label for="potmNotes">Why they were selected</label>
+    <textarea id="potmNotes" rows="4" placeholder="e.g. Brilliant work rate, two great saves, always encouraging teammates…"></textarea></div>
+</section>
+
 <section class="card full" id="planCard">
   <div class="print-only"><h1 style="margin:0 0 4px">Rotation plan</h1><p id="printMeta" class="note"></p></div>
   <h2 class="no-print">Rotation plan</h2>
@@ -298,7 +317,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
   <h3>Your data</h3>
-  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match and season) or restore one on another device. “Clear current data” keeps your squad and match set-up but clears the plan, match day and season.</p>
+  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match and season) or restore one on another device. “Clear current data” keeps your squad and match set-up but clears the plan, match day, player of the match and season.</p>
   <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
   <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad and match set-up; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
 </section>
@@ -510,6 +529,7 @@ var FPT = (function(){
         currentMatch:{home:md.home,away:md.away,score:score(md),
           clock:{period:clock.period,running:!!clock.running,periodElapsed:fmtClock(periodElapsed(clock,nowMs)),matchElapsed:fmtClock(matchElapsed(clock,nowMs))},
           goalsAssists:Object.keys(ps).map(function(id){return {id:id,name:name[id]||null,goals:ps[id].goals,assists:ps[id].assists};}),
+          playerOfTheMatch:data.potm?{players:(data.potm.ids||[]).map(function(id){return {id:id,name:name[id]||(data.potm.names&&data.potm.names[id])||null};}),notes:data.potm.notes||''}:null,
           goalkeepers:data.result&&data.result.gkByPeriod?data.result.gkByPeriod.map(function(id,p){return {period:p+1,id:id,name:name[id]||null,chosen:!!(data.gkOverrides&&data.gkOverrides[p])};}):[]},
         seasonTotals:ids.map(function(id){var o=sum[id];return {id:id,name:name[id],matchesAvailable:o.apps,minutesPlayed:o.played,fairShare:Math.round(o.fair*10)/10,difference:Math.round(o.diff*10)/10,goals:o.goals,assists:o.assists};}),
         matchesSaved:(data.matches||[]).length
@@ -534,6 +554,7 @@ var FPT = (function(){
     var nums={onPitch:[1,15],periods:[1,8],periodMins:[1,60],subsPer:[1,6]};
     for(var k in nums){ if(d[k]!=null&&(typeof d[k]!=='number'||d[k]<nums[k][0]||d[k]>nums[k][1])) return {ok:false,error:'Setting “'+k+'” is out of range.'}; }
     if(d.md!=null&&(typeof d.md!=='object'||!Array.isArray(d.md.events))) return {ok:false,error:'The current match data is invalid.'};
+    if(d.potm!=null&&(typeof d.potm!=='object'||!Array.isArray(d.potm.ids)||(d.potm.notes!=null&&typeof d.potm.notes!=='string'))) return {ok:false,error:'The player of the match data is invalid.'};
     if(d.subAlert!=null&&typeof d.subAlert!=='boolean') return {ok:false,error:'The sub alert setting is invalid.'};
     if(d.clock!=null&&(typeof d.clock!=='object'||typeof d.clock.acc!=='number')) return {ok:false,error:'The stopwatch data is invalid.'};
     if(d.result!=null&&(typeof d.result!=='object'||!Array.isArray(d.result.plan))) return {ok:false,error:'The rotation plan is invalid.'};
@@ -549,11 +570,21 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 <script id="ui">
 (function(){
   var KEY='fairPlayingTime.v1';
-  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,subAlert:true,alertFired:[]};
+  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,subAlert:true,alertFired:[],potm:{ids:[],names:{},notes:''}};
   var S=load();
   function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.players)return Object.assign({},defaults,s);}catch(e){}return JSON.parse(JSON.stringify(defaults));}
   function ensureMd(){ if(!S.clock) S.clock=FPT.newClock(); if(!S.md) S.md={home:'My team',away:'',events:[]}; }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+  function ensurePotm(){ var p=S.potm; if(!p||typeof p!=='object') p={}; if(!Array.isArray(p.ids)) p.ids=[]; if(!p.names||typeof p.names!=='object') p.names={}; if(typeof p.notes!=='string') p.notes=''; S.potm=p; return p; }
+  function potmName(id){ var p=S.players.find(function(x){return x.id===id;}); return p?(p.name||'(unnamed)'):(S.potm&&S.potm.names&&S.potm.names[id])||'(removed)'; }
+  function renderPotm(){ var P=ensurePotm(), g=$('potmGrid'); if(!g) return;
+    // present players, plus anyone already picked (even if since marked absent or removed) so nothing silently disappears
+    var list=S.players.filter(function(p){return !p.absent||P.ids.indexOf(p.id)>=0;}).map(function(p){return {id:p.id,name:p.name||'(unnamed)',absent:p.absent};});
+    P.ids.forEach(function(id){ if(!S.players.some(function(p){return p.id===id;})) list.push({id:id,name:potmName(id),removed:true}); });
+    g.innerHTML=list.length?list.map(function(p){var on=P.ids.indexOf(p.id)>=0;
+      return '<button type="button" data-potm="'+p.id+'" aria-pressed="'+on+'"><span class="star" aria-hidden="true">⭐</span><span>'+esc(p.name)+(p.removed?'<small>no longer in squad</small>':p.absent?'<small>marked absent</small>':'')+'</span></button>';}).join(''):'<p class="note">Add players to the squad first.</p>';
+    $('potmSummary').textContent=P.ids.length?'Selected: '+P.ids.map(potmName).join(', '):'No player selected yet.';
+    if(document.activeElement!==$('potmNotes')) $('potmNotes').value=P.notes; }
   function $(id){return document.getElementById(id);}
   function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function uid(){return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
@@ -573,6 +604,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         '<button class="small danger" data-f="del" aria-label="Remove '+esc(p.name)+'">✕</button></li>';
     }).join('');
     if(typeof renderGrid==='function'&&$('mdGrid'))renderGrid();
+    renderPotm();
     var sel=$('fixedGk'), avail=S.players.filter(function(p){return !p.absent;});
     sel.innerHTML='<option value="">— choose —</option>'+avail.map(function(p){return '<option value="'+p.id+'"'+(p.id===S.fixedGkId?' selected':'')+'>'+esc(p.name||'(unnamed)')+'</option>';}).join('');
   }
@@ -676,19 +708,19 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         var cls=o.pct==null?'':(o.pct<90?'b-bad':o.pct<97?'b-warn':'b-ok');
         h+='<tr><td>'+esc(nameOf(id))+'</td><td class="num">'+o.apps+'</td><td class="num">'+fmt(o.played)+'</td><td class="num">'+fmt(o.fair)+'</td><td class="num">'+(o.diff>=0.05?'+':'')+fmt(o.diff)+'</td><td class="num">'+(o.pct==null?'—':'<span class="badge '+cls+'">'+Math.round(o.pct)+'%</span>')+'</td><td class="num">'+(o.goals||0)+'</td><td class="num">'+(o.assists||0)+'</td></tr>';});
       h+='</tbody></table></div><p class="note">Fixed goalkeepers will show above 100% – that’s expected.</p>';
-      h+='<h3>Saved matches</h3><div class="tablewrap"><table><thead><tr><th>Date</th><th>Opponent</th><th>Score</th><th>Format</th><th class="num">Players</th><th></th></tr></thead><tbody>'+
-        S.matches.map(function(m,i){return '<tr><td>'+(m.date?esc(new Date(m.date).toLocaleDateString('en-GB')):'—')+'</td><td>'+esc(m.opponent||'—')+'</td><td>'+(m.score?m.score.home+'–'+m.score.away:'—')+'</td><td>'+m.onPitch+'-a-side, '+m.matchMins+' min</td><td class="num">'+m.available.length+'</td><td><button class="small danger" data-delmatch="'+i+'">Delete</button></td></tr>';}).reverse().join('')+'</tbody></table></div>';
+      h+='<h3>Saved matches</h3><div class="tablewrap"><table><thead><tr><th>Date</th><th>Opponent</th><th>Score</th><th>Format</th><th class="num">Players</th><th>⭐ Player of the match</th><th></th></tr></thead><tbody>'+
+        S.matches.map(function(m,i){return '<tr><td>'+(m.date?esc(new Date(m.date).toLocaleDateString('en-GB')):'—')+'</td><td>'+esc(m.opponent||'—')+'</td><td>'+(m.score?m.score.home+'–'+m.score.away:'—')+'</td><td>'+m.onPitch+'-a-side, '+m.matchMins+' min</td><td class="num">'+m.available.length+'</td><td>'+(m.potm&&((m.potm.names&&m.potm.names.length)||m.potm.notes)?((m.potm.names&&m.potm.names.length?'<b>'+esc(m.potm.names.join(', '))+'</b>':'—')+(m.potm.notes?'<div class="potmline">'+esc(m.potm.notes)+'</div>':'')):'—')+'</td><td><button class="small danger" data-delmatch="'+i+'">Delete</button></td></tr>';}).reverse().join('')+'</tbody></table></div>';
     }
     $('seasonOut').innerHTML=h;
   }
-  function renderAll(){renderPlayers();renderSettings();renderPlan();renderSeason();renderMatch();}
+  function renderAll(){renderPlayers();renderSettings();renderPlan();renderSeason();renderMatch();renderPotm();}
 
   // events
   function addPlayer(){var n=$('newName').value.trim();if(!n)return;S.players.push({id:uid(),name:n,absent:false,gk:false});$('newName').value='';save();renderPlayers();$('newName').focus();}
   $('addPlayer').onclick=addPlayer;
   $('newName').addEventListener('keydown',function(e){if(e.key==='Enter')addPlayer();});
   $('playerList').addEventListener('input',function(e){var li=e.target.closest('li[data-id]');if(!li)return;var p=S.players.find(function(x){return x.id===li.dataset.id;});
-    if(e.target.dataset.f==='name'){p.name=e.target.value;save();var o=$('fixedGk').querySelector('option[value="'+p.id+'"]');if(o)o.textContent=p.name;}});
+    if(e.target.dataset.f==='name'){p.name=e.target.value;save();var o=$('fixedGk').querySelector('option[value="'+p.id+'"]');if(o)o.textContent=p.name;renderPotm();}});
   $('playerList').addEventListener('change',function(e){var li=e.target.closest('li[data-id]');if(!li)return;var p=S.players.find(function(x){return x.id===li.dataset.id;});
     var f=e.target.dataset.f;if(f==='here'){p.absent=!e.target.checked;}else if(f==='gk'){p.gk=e.target.checked;}else return;save();renderPlayers();if(f==='name'){renderPlan();}});
   $('playerList').addEventListener('click',function(e){if(e.target.dataset.f!=='del')return;var id=e.target.closest('li').dataset.id;
@@ -920,11 +952,16 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   });
   $('printBtn').onclick=function(){renderPlan();window.print();};
   $('adjustOut').addEventListener('input',function(e){var id=e.target.dataset.adj;if(!id)return;var v=parseFloat(e.target.value);S.adjust[id]=isNaN(v)?0:v;save();});
+  $('potmGrid').addEventListener('click',function(e){var b=e.target.closest('[data-potm]');if(!b)return;var P=ensurePotm(),id=b.dataset.potm,i=P.ids.indexOf(id);
+    if(i>=0){P.ids.splice(i,1);delete P.names[id];}else{P.ids.push(id);P.names[id]=potmName(id);}
+    save();renderPotm();});
+  $('potmNotes').addEventListener('input',function(){ensurePotm().notes=this.value;save();});
   $('saveMatch').onclick=function(){var R=S.result;if(!R){alert('Generate a plan first.');return;}
     var mins={};R.available.forEach(function(id){mins[id]=S.adjust[id]!=null?S.adjust[id]:R.minutes[id];});
     ensureMd();var ps=FPT.playerStats(S.md),goals={},assists={};Object.keys(ps).forEach(function(id){if(ps[id].goals)goals[id]=ps[id].goals;if(ps[id].assists)assists[id]=ps[id].assists;});
     S.matches.push({date:$('matchDate').value||null,opponent:$('opponent').value.trim()||S.md.away,onPitch:R.onPitch,matchMins:R.matchMins,available:R.available.slice(),minutes:mins,
       goals:goals,assists:assists,score:FPT.score(S.md),events:S.md.events.slice(),home:S.md.home});
+    var P=ensurePotm();if(P.ids.length||P.notes.trim())S.matches[S.matches.length-1].potm={ids:P.ids.slice(),names:P.ids.map(potmName),notes:P.notes.trim()};
     save();renderSeason();toast('Match saved to the season tracker (with goals and assists).');};
   $('seasonOut').addEventListener('click',function(e){var i=e.target.dataset.delmatch;if(i==null)return;if(!confirm('Delete this match from the season?'))return;S.matches.splice(+i,1);save();renderSeason();});
   // ---------- Export / import ----------
@@ -957,9 +994,9 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     rd.readAsText(f);};
   // Clear current data: keep Squad (players, Here/GK ticks, order) and Match set-up; clear everything else.
   $('clearCurrent').onclick=function(){
-    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log and ALL saved season matches.\n\nTip: export your data first if you might need it.'))return;
+    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log, player of the match (picks and notes) and ALL saved season matches.\n\nTip: export your data first if you might need it.'))return;
     var home=S.md&&S.md.home!=null?S.md.home:'My team';
-    S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];
+    S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];S.potm={ids:[],names:{},notes:''};
     S.clock=FPT.newClock();S.alertFired=[];S.md={home:home,away:'',events:[]};
     sel=null;lastBlock=null;$('subAlertBar').hidden=true;try{if(canVibrate)navigator.vibrate(0);}catch(e){}
     $('opponent').value='';var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
