@@ -84,16 +84,6 @@ button.big2{min-height:48px;padding:10px 18px;font-size:1rem}
 .watch button.primary{color:#fff}
 .watchtime{font-size:clamp(3rem,14vw,5.5rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:2px;line-height:1}
 .watchtime.over{color:#ffcf6e}
-.subalert{position:fixed;left:0;right:0;top:0;z-index:1004;display:flex;gap:10px;align-items:center;justify-content:space-between;background:#ffb020;color:#2a1c00;padding:14px 14px calc(14px);padding-top:max(14px,env(safe-area-inset-top));font-weight:800;font-size:1.15rem;line-height:1.3;text-align:left;box-shadow:0 6px 20px rgba(0,0,0,.35);border-bottom:4px solid #c0392b;animation:flash 1s steps(2,jump-none) infinite}
-.subalert[hidden]{display:none}
-.subalert button{color:#2a1c00;background:#fff;border:2px solid #2a1c00;min-width:48px;min-height:48px;font-size:1.2rem;font-weight:800;flex:none}
-@keyframes flash{0%{background:#ffb020}100%{background:#ff6b3d}}
-@media (prefers-reduced-motion:reduce){.subalert{animation:none}}
-.alertrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin-top:10px}
-.alertrow .alerttoggle{margin-top:0}
-.alertnote{font-size:.8rem;color:#cfd8e3;opacity:.85;margin-top:6px}
-.alerttoggle{justify-content:center;margin-top:10px;color:#cfd8e3;font-size:.95rem}
-.alerttoggle input{width:20px;height:20px}
 .watchinfo{opacity:.85;margin-top:6px;font-size:.95rem}
 .mdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .mdgrid button{min-height:56px;text-align:left;padding:8px 10px;display:flex;flex-direction:column;gap:2px;touch-action:manipulation}
@@ -259,9 +249,6 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <div class="watch">
     <div class="watchtime" id="watchTime">00:00</div>
     <div class="watchinfo" id="watchInfo"></div>
-    <div class="subalert" id="subAlertBar" hidden role="alert"><span id="subAlertText"></span><button class="small" id="subAlertClose" aria-label="Dismiss alert">✕</button></div>
-    <div class="alertrow no-print"><label class="chk alerttoggle"><input type="checkbox" id="subAlertToggle"> 🔔 Alert 1:00 before sub</label><button class="small" id="subAlertTest" title="Play the alert now to check volume and vibration">Test alert</button></div>
-    <div class="alertnote no-print" id="alertNote" hidden></div>
     <div class="actions no-print" style="justify-content:center">
       <button class="primary big2" id="watchStart">▶ Start</button>
       <button class="big2" id="watchNext">Next period ⏭</button>
@@ -506,19 +493,6 @@ var FPT = (function(){
   function currentBlock(plan,c,now){ if(!plan) return -1; var t=periodElapsed(c,now)/60000, best=-1;
     for(var j=0;j<plan.length;j++){ var s=plan[j]; if(s.period!==c.period) continue; if(best<0||t>=s.start) best=j; if(t<s.start+s.len) { if(t>=s.start) return j; } }
     return best; }
-  // Sub alert (default 60s lead): returns info when the clock is within leadSec of the end of the current sub window
-  // and the next window has a lineup change. null otherwise (paused, last window, overtime, no change).
-  function subAlertDue(plan,c,now,leadSec){
-    if(!plan||!c||!c.running) return null; leadSec=leadSec==null?60:leadSec;
-    var j=currentBlock(plan,c,now); if(j<0) return null;
-    var seg=plan[j], next=plan[j+1]; if(!next) return null;
-    var endMs=(seg.start+seg.len)*60000, remaining=endMs-periodElapsed(c,now);
-    if(remaining<=0||remaining>leadSec*1000) return null;
-    var ins=next.on.filter(function(id){return seg.on.indexOf(id)<0;}), outs=seg.on.filter(function(id){return next.on.indexOf(id)<0;});
-    var gkChange=next.gk!==seg.gk;
-    if(!ins.length&&!outs.length&&!gkChange) return null;
-    return {block:j,key:c.period+':'+j,remainingMs:remaining,ins:ins,outs:outs,gk:gkChange?next.gk:null,periodEnd:next.period!==seg.period};
-  }
   // ---------- Match events ----------
   var evSeq=0;
   function addEvent(md,ev,c,now,wall){
@@ -575,14 +549,13 @@ var FPT = (function(){
     for(var k in nums){ if(d[k]!=null&&(typeof d[k]!=='number'||d[k]<nums[k][0]||d[k]>nums[k][1])) return {ok:false,error:'Setting “'+k+'” is out of range.'}; }
     if(d.md!=null&&(typeof d.md!=='object'||!Array.isArray(d.md.events))) return {ok:false,error:'The current match data is invalid.'};
     if(d.potm!=null&&(typeof d.potm!=='object'||!Array.isArray(d.potm.ids)||(d.potm.notes!=null&&typeof d.potm.notes!=='string'))) return {ok:false,error:'The player of the match data is invalid.'};
-    if(d.subAlert!=null&&typeof d.subAlert!=='boolean') return {ok:false,error:'The sub alert setting is invalid.'};
     if(d.clock!=null&&(typeof d.clock!=='object'||typeof d.clock.acc!=='number')) return {ok:false,error:'The stopwatch data is invalid.'};
     if(d.result!=null&&(typeof d.result!=='object'||!Array.isArray(d.result.plan))) return {ok:false,error:'The rotation plan is invalid.'};
     return {ok:true,state:JSON.parse(JSON.stringify(d)),meta:{appVersion:o.appVersion,exportedAt:o.exportedAt,players:d.players.length,matches:ms.length}};
   }
   function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
   function shuffle(arr,rnd){for(var i=arr.length-1;i>0;i--){var j=Math.floor(rnd()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
-  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,subAlertDue:subAlertDue,clockPause:clockPause,clockNextPeriod:clockNextPeriod,periodDurations:periodDurations,actualMinutes:actualMinutes,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats,APP_VERSION:APP_VERSION,exportFilename:exportFilename,buildExport:buildExport,parseImport:parseImport};
+  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,clockPause:clockPause,clockNextPeriod:clockNextPeriod,periodDurations:periodDurations,actualMinutes:actualMinutes,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats,APP_VERSION:APP_VERSION,exportFilename:exportFilename,buildExport:buildExport,parseImport:parseImport};
 })();
 if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 </script>
@@ -590,8 +563,9 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 <script id="ui">
 (function(){
   var KEY='fairPlayingTime.v1';
-  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,subAlert:true,alertFired:[],potm:{ids:[],names:{},notes:''}};
+  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,potm:{ids:[],names:{},notes:''}};
   var S=load();
+  delete S.subAlert;delete S.alertFired; // the 1:00 sub alert was removed in v1.5.2
   function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.players)return Object.assign({},defaults,s);}catch(e){}return JSON.parse(JSON.stringify(defaults));}
   function ensureMd(){ if(!S.clock) S.clock=FPT.newClock(); if(!S.md) S.md={home:'My team',away:'',events:[]}; }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -781,63 +755,8 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     $('watchInfo').textContent=info;
     $('watchStart').textContent=c.running?'⏸ Pause':(pe>0?'▶ Resume':'▶ Start');
     $('watchNext').disabled=c.period>=nP-1;
-    checkSubAlert();
     refreshActual();
-    if(b!==lastBlock){if(!$('subAlertBar').hidden&&+$('subAlertBar').dataset.block!==b)$('subAlertBar').hidden=true;lastBlock=b;document.querySelectorAll('#planOut tr[data-row]').forEach(function(tr){tr.classList.toggle('current-block',+tr.dataset.row===b);});renderGrid();}
-  }
-  // ---------- Sub alert (1:00 before the next substitution) ----------
-  var audioCtx=null;
-  function unlockAudio(){try{
-      // iOS: let Web Audio play even with the ring/silent switch on (Safari 17+), then resume inside the user gesture
-      try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
-      var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!audioCtx)audioCtx=new AC();
-      if(audioCtx.state!=='running')audioCtx.resume();
-      // play a silent buffer: older iOS only fully unlocks audio after something plays during a tap
-      var b=audioCtx.createBuffer(1,1,22050),src=audioCtx.createBufferSource();src.buffer=b;src.connect(audioCtx.destination);src.start(0);
-    }catch(e){}}
-  // Loud, insistent alarm: 2 bursts of 4 beeps (~2.8 s), square wave through a compressor for maximum loudness
-  function playAlarm(){var c=audioCtx,t0=c.currentTime+0.05;
-    var comp=c.createDynamicsCompressor();comp.threshold.value=-10;comp.knee.value=0;comp.ratio.value=12;comp.attack.value=0.003;comp.release.value=0.1;
-    var master=c.createGain();master.gain.value=1.35;comp.connect(master);master.connect(c.destination);
-    var beepLen=0.22,gap=0.1,burstGap=0.35,t=t0;
-    for(var burst=0;burst<2;burst++){
-      for(var i=0;i<4;i++){
-        var f=i===3?1568:(i%2?1318:1046); // C6, E6, C6, G6 – rising, attention-grabbing
-        [[f,'square',0.55],[f*2,'sine',0.35]].forEach(function(v){var o=c.createOscillator(),g=c.createGain();o.type=v[1];o.frequency.value=v[0];
-          g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v[2],t+0.012);g.gain.setValueAtTime(v[2],t+beepLen-0.03);g.gain.exponentialRampToValueAtTime(0.0001,t+beepLen);
-          o.connect(g);g.connect(comp);o.start(t);o.stop(t+beepLen+0.02);});
-        t+=beepLen+gap;
-      }
-      t+=burstGap;
-    }
-    return t-t0;
-  }
-  function beep(){try{unlockAudio();if(!audioCtx)return;
-      if(audioCtx.state!=='running'){audioCtx.resume().then(playAlarm).catch(function(){});}else playAlarm();
-    }catch(e){}}
-  var canVibrate=typeof navigator.vibrate==='function';
-  var VIB=[400,120,400,120,400,120,800];
-  function buzz(){if(!canVibrate)return false;var okv=false;
-    try{okv=navigator.vibrate(VIB);}catch(e){}
-    setTimeout(function(){try{navigator.vibrate(VIB);}catch(e){}},2600); // second burst in case the first was swallowed
-    return okv;}
-  function alertFeedback(){beep();buzz();}
-  function askNotify(){try{if(S.subAlert&&'Notification' in window&&Notification.permission==='default')Notification.requestPermission().catch(function(){});}catch(e){}}
-  function sysNotify(title,body){try{if(!('Notification' in window)||Notification.permission!=='granted')return;
-    var o={body:body,tag:'fair-play-sub',renotify:true,icon:'icons/icon-192.png',badge:'icons/icon-192.png',vibrate:[200,100,200]};
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(function(r){r.showNotification(title,o);}).catch(function(){new Notification(title,o);});
-    else new Notification(title,o);}catch(e){}}
-  function checkSubAlert(){
-    if(!S.subAlert||!S.result)return;var a=FPT.subAlertDue(S.result.plan,S.clock,now(),60);if(!a)return;
-    S.alertFired=S.alertFired||[];if(S.alertFired.indexOf(a.key)>=0)return;
-    S.alertFired.push(a.key);save();
-    var seg=S.result.plan[a.block],what=pName(seg.period)+' block '+(seg.sub+1)+' ending'+(a.periodEnd?' (break)':'');
-    var names=function(l){return l.map(nameOf).join(', ');};
-    var detail=(a.ins.length?'On: '+names(a.ins):'')+(a.outs.length?(a.ins.length?' · ':'')+'Off: '+names(a.outs):'')+(a.gk?' · 🧤 '+nameOf(a.gk)+' in goal':'');
-    var head='Sub in '+FPT.fmtClock(a.remainingMs+999).replace(/^0/,'')+' — '+what;
-    $('subAlertText').textContent='⏱ '+head+(detail?'. '+detail:'');$('subAlertBar').hidden=false;$('subAlertBar').dataset.block=a.block;
-    toast('⏱ '+head);alertFeedback();
-    if(document.hidden)sysNotify('⏱ '+head,detail||'Get the next players ready.');
+    if(b!==lastBlock){lastBlock=b;document.querySelectorAll('#planOut tr[data-row]').forEach(function(tr){tr.classList.toggle('current-block',+tr.dataset.row===b);});renderGrid();}
   }
   function fmtM(m){return (Math.round(m*10)/10).toString().replace(/\.0$/,'');}
   function onPitchNow(){var b=curBlockIdx();if(b<0&&S.result)b=FPT.currentBlock(S.result.plan,S.clock,now());return (S.result&&b>=0)?S.result.plan[b].on:[];}
@@ -855,7 +774,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     return esc(e.type);
   }
   function renderMatch(){
-    ensureMd();var sc=FPT.score(S.md);$('subAlertToggle').checked=S.subAlert!==false;
+    ensureMd();var sc=FPT.score(S.md);
     $('homeScore').textContent=sc.home;$('awayScore').textContent=sc.away;
     if(document.activeElement!==$('homeName'))$('homeName').value=S.md.home;
     if(document.activeElement!==$('awayName'))$('awayName').value=S.md.away;
@@ -897,20 +816,12 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   $('homeName').addEventListener('input',function(){ensureMd();S.md.home=this.value;save();});
   $('awayName').addEventListener('input',function(){ensureMd();S.md.away=this.value;$('opponent').value=this.value;save();});
   $('opponent').addEventListener('input',function(){ensureMd();S.md.away=this.value;$('awayName').value=this.value;save();});
-  $('watchStart').onclick=function(){ensureMd();unlockAudio();if(!S.clock.running)askNotify();S.clock=S.clock.running?FPT.clockPause(S.clock,now()):FPT.clockStart(S.clock,now());save();tick();};
+  $('watchStart').onclick=function(){ensureMd();S.clock=S.clock.running?FPT.clockPause(S.clock,now()):FPT.clockStart(S.clock,now());save();tick();};
   $('watchNext').onclick=function(){ensureMd();var c=S.clock;if(c.period>=S.periods-1)return;
     if(!confirm('End '+pName(c.period)+' and get ready for '+pName(c.period+1)+'? The clock will wait for you to press Start.'))return;
-    S.clock=FPT.clockNextPeriod(c,now(),S.periods);S.alertFired=[];$('subAlertBar').hidden=true;save();tick();};
-  $('watchReset').onclick=function(){if(!confirm('Reset the stopwatch to 00:00 (back to the first period)?'))return;S.clock=FPT.newClock();S.alertFired=[];$('subAlertBar').hidden=true;save();tick();};
-  $('newMatch').onclick=function(){if(!confirm('Clear the stopwatch, score and event log for a new match? (Saved season data is kept.)'))return;S.clock=FPT.newClock();S.alertFired=[];$('subAlertBar').hidden=true;S.md={home:S.md.home,away:'',events:[]};$('opponent').value='';save();renderMatch();};
-  $('subAlertToggle').checked=S.subAlert!==false;
-  $('subAlertToggle').onchange=function(){S.subAlert=this.checked;save();if(this.checked){unlockAudio();askNotify();toast('Sub alerts on – you’ll get a warning 1:00 before each change.');}else{$('subAlertBar').hidden=true;toast('Sub alerts off.');}};
-  $('subAlertClose').onclick=function(){$('subAlertBar').hidden=true;try{if(canVibrate)navigator.vibrate(0);}catch(e){}};
-  $('subAlertTest').onclick=function(){unlockAudio();askNotify();
-    var bar=$('subAlertBar');$('subAlertText').textContent='⏱ Test alert – this is how the 1:00 sub warning looks and sounds.';bar.dataset.block='-2';bar.hidden=false;
-    var v=buzz();beep();
-    toast(canVibrate?(v?'Playing alert with vibration.':'Playing alert – your browser blocked vibration (check silent/battery-saver mode).'):'Playing alert – this device/browser doesn’t support vibration (e.g. iPhone).');};
-  if(!canVibrate){var an=$('alertNote');an.textContent='📳 Vibration isn’t available in this browser (iPhone/iPad Safari doesn’t support it) – the alert uses a loud sound and a flashing banner instead. Keep the volume up and the screen on.';an.hidden=false;}
+    S.clock=FPT.clockNextPeriod(c,now(),S.periods);save();tick();};
+  $('watchReset').onclick=function(){if(!confirm('Reset the stopwatch to 00:00 (back to the first period)?'))return;S.clock=FPT.newClock();save();tick();};
+  $('newMatch').onclick=function(){if(!confirm('Clear the stopwatch, score and event log for a new match? (Saved season data is kept.)'))return;S.clock=FPT.newClock();S.md={home:S.md.home,away:'',events:[]};$('opponent').value='';save();renderMatch();};
   setInterval(tick,250);
   document.addEventListener('visibilitychange',tick);
   // ---------- Drag and drop (pointer events: mouse, touch and pen) ----------
@@ -1018,7 +929,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
       if(!r.ok){alert('Import failed: '+r.error+'\n\nYour current data has not been changed.');return;}
       var when=r.meta.exportedAt?new Date(r.meta.exportedAt).toLocaleString('en-GB'):'unknown date';
       if(!confirm('Replace ALL current data with this backup?\n\nExported: '+when+'\nPlayers: '+r.meta.players+' · Saved matches: '+r.meta.matches+'\n\nTip: export your current data first if you might need it.'))return;
-      S=Object.assign(JSON.parse(JSON.stringify(defaults)),r.state);sel=null;lastBlock=null;
+      S=Object.assign(JSON.parse(JSON.stringify(defaults)),r.state);delete S.subAlert;delete S.alertFired;sel=null;lastBlock=null;
       if(S.md&&S.md.away)$('opponent').value=S.md.away;
       save();renderAll();toast('Backup restored.');};
     rd.readAsText(f);};
@@ -1027,8 +938,8 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log, player of the match (picks and notes) and ALL saved season matches.\n\nTip: export your data first if you might need it.'))return;
     var home=S.md&&S.md.home!=null?S.md.home:'My team';
     S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];S.potm={ids:[],names:{},notes:''};
-    S.clock=FPT.newClock();S.alertFired=[];S.md={home:home,away:'',events:[]};
-    sel=null;lastBlock=null;$('subAlertBar').hidden=true;try{if(canVibrate)navigator.vibrate(0);}catch(e){}
+    S.clock=FPT.newClock();S.md={home:home,away:'',events:[]};
+    sel=null;lastBlock=null;
     $('opponent').value='';var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     save();renderAll();tick();toast('Current data cleared – squad and match set-up kept.');};
   $('resetAll').onclick=function(){if(!confirm('Reset squad, settings, plan and season data?'))return;S=JSON.parse(JSON.stringify(defaults));save();renderAll();};
