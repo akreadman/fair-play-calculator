@@ -115,6 +115,8 @@ button.big2{min-height:48px;padding:10px 18px;font-size:1rem}
 .sheet-actions button{min-height:64px;font-size:1.15rem;font-weight:700}
 .sheet .mdgrid button{min-height:48px}
 tr.current-block td{background:#fff8dc}
+/* bold divider between periods/quarters in the block-by-block plan (e.g. Q1 · 2 → Q2 · 1) */
+#planOut table.blocks tr.qbreak td{border-top:3px solid #5f6b7a}
 tr.current-block td:first-child{box-shadow:inset 4px 0 0 #e0a800}
 .grip{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;color:#8a96a3;padding:4px 6px;margin:-4px 0;font-size:1rem;line-height:1}
 .players li .grip{padding:8px 6px}
@@ -181,6 +183,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   .watchtime{font-size:2rem}
   .teamname{border:none}
   tr.current-block td{background:none}
+  #planOut table.blocks tr.qbreak td{border-top:2.5px solid #000}
   #planOut,#planOut table,#planOut th{font-size:10.5pt}
   #planOut td{padding:4px 6px}
   #planOut .tag,#planOut .tag[data-id]{font-size:10pt;min-height:0;padding:1px 6px;margin:1px 2px 1px 0}
@@ -637,7 +640,8 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         ch=(ins.length?'<div class="on">↑ '+ins.map(function(i){return esc(nameOf(i));}).join(', ')+'</div>':'')+(outs.length?'<div class="off">↓ '+outs.map(function(i){return esc(nameOf(i));}).join(', ')+'</div>':'');
         if(prev.gk!==seg.gk&&seg.gk)ch+='<div>🧤 '+esc(nameOf(seg.gk))+' in goal</div>';
         if(!ch)ch='<span class="note">No changes</span>';}
-      h+='<tr data-row="'+j+'"'+(j===curBlockIdx()?' class="current-block"':'')+'><td><b>'+esc(label)+'</b><span class="btime">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+'′</span></td><td class="note tcol" style="white-space:nowrap">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+' min</td><td class="zone" data-zone="on" data-block="'+j+'">'+on+'</td><td class="zone" data-zone="off" data-block="'+j+'">'+off+'</td><td>'+ch+'</td></tr>';
+      var cls=(j>0&&R.plan[j-1].period!==seg.period?'qbreak ':'')+(j===curBlockIdx()?'current-block':'');
+      h+='<tr data-row="'+j+'"'+(cls.trim()?' class="'+cls.trim()+'"':'')+'><td><b>'+esc(label)+'</b><span class="btime">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+'′</span></td><td class="note tcol" style="white-space:nowrap">'+fmt(seg.start)+'–'+fmt(seg.start+seg.len)+' min</td><td class="zone" data-zone="on" data-block="'+j+'">'+on+'</td><td class="zone" data-zone="off" data-block="'+j+'">'+off+'</td><td>'+ch+'</td></tr>';
       prev=seg;
     });
     h+='</tbody></table></div>';
