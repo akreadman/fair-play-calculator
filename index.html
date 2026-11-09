@@ -100,6 +100,8 @@ button.big2{min-height:48px;padding:10px 18px;font-size:1rem}
 textarea{width:100%;min-height:96px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink);resize:vertical}
 textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .potmline{margin-top:3px;font-size:.82rem;color:var(--muted);white-space:pre-line;min-width:140px}
+#potmHistOut .potmline{min-width:0}
+#potmHistOut td:last-child{width:1%;text-align:right}
 @media(min-width:800px){.mdcols{grid-template-columns:1.4fr 1fr}}
 .evlog{list-style:none;padding:0;margin:0;display:grid;gap:6px}
 .evlog li{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
@@ -296,6 +298,12 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <div id="seasonOut"></div>
 </section>
 
+<section class="card full no-print" id="potmHistCard">
+  <h2>⭐ Player of the match tracker</h2>
+  <p class="note" style="margin-top:0">A record of every player of the match, newest first. Added when you save a match to the season with a player of the match picked. Kept when you use “Clear current data” or “Clear season data”.</p>
+  <div id="potmHistOut"></div>
+</section>
+
 <section class="card full no-print">
   <details>
     <summary>How the calculation works</summary>
@@ -304,9 +312,9 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
   <h3>Your data</h3>
-  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match and season) or restore one on another device. “Clear current data” keeps your squad and match set-up but clears the plan, match day, player of the match and season.</p>
+  <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match, tracker and season) or restore one on another device. “Clear current data” keeps your squad, match set-up and the Player of the match tracker, but clears the plan, match day, current player of the match picks and season.</p>
   <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
-  <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad and match set-up; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
+  <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad, match set-up and player of the match tracker; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
 </section>
 </main>
 <div id="sheet" class="sheet" hidden><div class="sheet-backdrop" data-close="1"></div><div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><h3 id="sheetTitle"></h3><div id="sheetBody"></div></div></div>
@@ -526,7 +534,8 @@ var FPT = (function(){
           playerOfTheMatch:data.potm?{players:(data.potm.ids||[]).map(function(id){return {id:id,name:name[id]||(data.potm.names&&data.potm.names[id])||null};}),notes:data.potm.notes||''}:null,
           goalkeepers:data.result&&data.result.gkByPeriod?data.result.gkByPeriod.map(function(id,p){return {period:p+1,id:id,name:name[id]||null,chosen:!!(data.gkOverrides&&data.gkOverrides[p])};}):[]},
         seasonTotals:ids.map(function(id){var o=sum[id];return {id:id,name:name[id],matchesAvailable:o.apps,minutesPlayed:o.played,fairShare:Math.round(o.fair*10)/10,difference:Math.round(o.diff*10)/10,goals:o.goals,assists:o.assists};}),
-        matchesSaved:(data.matches||[]).length
+        matchesSaved:(data.matches||[]).length,
+        playerOfTheMatchTracker:(data.potmHistory||[]).map(function(e){return {date:e.date||null,players:e.names||[],notes:e.notes||''};})
       }
     };
   }
@@ -548,6 +557,7 @@ var FPT = (function(){
     var nums={onPitch:[1,15],periods:[1,8],periodMins:[1,60],subsPer:[1,6]};
     for(var k in nums){ if(d[k]!=null&&(typeof d[k]!=='number'||d[k]<nums[k][0]||d[k]>nums[k][1])) return {ok:false,error:'Setting “'+k+'” is out of range.'}; }
     if(d.md!=null&&(typeof d.md!=='object'||!Array.isArray(d.md.events))) return {ok:false,error:'The current match data is invalid.'};
+    if(d.potmHistory!=null&&(!Array.isArray(d.potmHistory)||d.potmHistory.some(function(e){return !e||typeof e!=='object'||!Array.isArray(e.names);}))) return {ok:false,error:'The player of the match tracker is invalid.'};
     if(d.potm!=null&&(typeof d.potm!=='object'||!Array.isArray(d.potm.ids)||(d.potm.notes!=null&&typeof d.potm.notes!=='string'))) return {ok:false,error:'The player of the match data is invalid.'};
     if(d.clock!=null&&(typeof d.clock!=='object'||typeof d.clock.acc!=='number')) return {ok:false,error:'The stopwatch data is invalid.'};
     if(d.result!=null&&(typeof d.result!=='object'||!Array.isArray(d.result.plan))) return {ok:false,error:'The rotation plan is invalid.'};
@@ -563,9 +573,14 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 <script id="ui">
 (function(){
   var KEY='fairPlayingTime.v1';
-  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,potm:{ids:[],names:{},notes:''}};
+  var defaults={players:[],onPitch:7,format:'7',periods:4,periodMins:12,subsPer:1,gkMode:'rotate',fixedGkId:null,useSeason:true,seed:1,gkOverrides:{},result:null,adjust:{},matches:[],clock:null,md:null,potm:{ids:[],names:{},notes:''},potmHistory:[]};
   var S=load();
   delete S.subAlert;delete S.alertFired; // the 1:00 sub alert was removed in v1.5.2
+  // v1.6.0: start the Player of the match tracker from any season matches already saved with a player of the match
+  (function(){try{var raw=JSON.parse(localStorage.getItem(KEY)||'null');if(!raw||Array.isArray(raw.potmHistory))return;
+    S.potmHistory=(S.matches||[]).filter(function(m){return m.potm&&m.potm.names&&m.potm.names.length;}).map(function(m,i){
+      return {id:'hm'+i,date:m.date||null,opponent:m.opponent||'',ids:(m.potm.ids||[]).slice(),names:m.potm.names.slice(),notes:m.potm.notes||'',savedAt:null};});
+    if(S.potmHistory.length)localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}})();
   function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.players)return Object.assign({},defaults,s);}catch(e){}return JSON.parse(JSON.stringify(defaults));}
   function ensureMd(){ if(!S.clock) S.clock=FPT.newClock(); if(!S.md) S.md={home:'My team',away:'',events:[]}; }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -579,6 +594,23 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
       return '<button type="button" data-potm="'+p.id+'" aria-pressed="'+on+'"><span class="star" aria-hidden="true">⭐</span><span>'+esc(p.name)+(p.removed?'<small>no longer in squad</small>':p.absent?'<small>marked absent</small>':'')+'</span></button>';}).join(''):'<p class="note">Add players to the squad first.</p>';
     $('potmSummary').textContent=P.ids.length?'Selected: '+P.ids.map(potmName).join(', '):'No player selected yet.';
     if(document.activeElement!==$('potmNotes')) $('potmNotes').value=P.notes; }
+  // ---------- Player of the match tracker (history; separate from season matches and from the current picks) ----------
+  function potmHist(){ if(!Array.isArray(S.potmHistory)) S.potmHistory=[]; return S.potmHistory; }
+  // Record the current picks in the tracker (no-op if nobody is picked; same date + same players is not added twice)
+  function recordPotm(){ var P=ensurePotm(); if(!P.ids.length) return false;
+    var H=potmHist(), date=$('matchDate').value||null, key=P.ids.slice().sort().join('|');
+    var dup=H.find(function(e){return (e.date||null)===date&&(e.ids||[]).slice().sort().join('|')===key;});
+    var notes=P.notes.trim(), opp=($('opponent').value||'').trim()||(S.md&&S.md.away)||'';
+    if(dup){ dup.names=P.ids.map(potmName); if(notes) dup.notes=notes; if(opp) dup.opponent=opp; return false; }
+    H.push({id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),date:date,opponent:opp,ids:P.ids.slice(),names:P.ids.map(potmName),notes:notes,savedAt:new Date().toISOString()});
+    return true; }
+  function renderPotmHist(){ var out=$('potmHistOut'); if(!out) return; var H=potmHist();
+    if(!H.length){ out.innerHTML='<p class="note">No players of the match recorded yet.</p>'; return; }
+    var rows=H.map(function(e,i){return {e:e,i:i};}).sort(function(a,b){var da=a.e.date||'',db=b.e.date||'';if(da!==db)return da<db?1:-1;return (b.e.savedAt||'')<(a.e.savedAt||'')?-1:(b.e.savedAt||'')>(a.e.savedAt||'')?1:b.i-a.i;});
+    out.innerHTML='<div class="tablewrap"><table><thead><tr><th>Match date</th><th>Player of the match</th><th></th></tr></thead><tbody>'+rows.map(function(r){var e=r.e;
+      return '<tr><td style="white-space:nowrap">'+(e.date?esc(new Date(e.date).toLocaleDateString('en-GB')):'—')+(e.opponent?'<div class="potmline">v '+esc(e.opponent)+'</div>':'')+'</td>'+
+        '<td><b>'+esc((e.names||[]).join(', ')||'—')+'</b>'+(e.notes?'<div class="potmline">'+esc(e.notes)+'</div>':'')+'</td>'+
+        '<td><button class="small danger" data-delpotm="'+esc(e.id||'')+'" data-idx="'+r.i+'" aria-label="Delete this entry" title="Delete this entry">✕</button></td></tr>';}).join('')+'</tbody></table></div>'; }
   function $(id){return document.getElementById(id);}
   function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function uid(){return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
@@ -708,7 +740,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     }
     $('seasonOut').innerHTML=h;
   }
-  function renderAll(){renderPlayers();renderSettings();renderPlan();renderSeason();renderMatch();renderPotm();}
+  function renderAll(){renderPlayers();renderSettings();renderPlan();renderSeason();renderMatch();renderPotm();renderPotmHist();}
 
   // events
   function addPlayer(){var n=$('newName').value.trim();if(!n)return;S.players.push({id:uid(),name:n,absent:false,gk:false});$('newName').value='';save();renderPlayers();$('newName').focus();}
@@ -903,7 +935,12 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     S.matches.push({date:$('matchDate').value||null,opponent:$('opponent').value.trim()||S.md.away,onPitch:R.onPitch,matchMins:R.matchMins,available:R.available.slice(),minutes:mins,
       goals:goals,assists:assists,score:FPT.score(S.md),events:S.md.events.slice(),home:S.md.home});
     var P=ensurePotm();if(P.ids.length||P.notes.trim())S.matches[S.matches.length-1].potm={ids:P.ids.slice(),names:P.ids.map(potmName),notes:P.notes.trim()};
+    recordPotm();renderPotmHist();
     save();renderSeason();toast('Match saved to the season tracker (with goals and assists).');};
+  $('potmHistOut').addEventListener('click',function(e){var b=e.target.closest('[data-delpotm]');if(!b)return;var H=potmHist(),id=b.dataset.delpotm;
+    var i=id?H.findIndex(function(x){return x.id===id;}):-1;if(i<0)i=+b.dataset.idx;var en=H[i];if(!en)return;
+    if(!confirm('Delete this player of the match entry?\n\n'+(en.names||[]).join(', ')+(en.date?' – '+new Date(en.date).toLocaleDateString('en-GB'):'')))return;
+    H.splice(i,1);save();renderPotmHist();});
   $('seasonOut').addEventListener('click',function(e){var i=e.target.dataset.delmatch;if(i==null)return;if(!confirm('Delete this match from the season?'))return;S.matches.splice(+i,1);save();renderSeason();});
   // ---------- Export / import ----------
   function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();
@@ -935,14 +972,15 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     rd.readAsText(f);};
   // Clear current data: keep Squad (players, Here/GK ticks, order) and Match set-up; clear everything else.
   $('clearCurrent').onclick=function(){
-    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log, player of the match (picks and notes) and ALL saved season matches.\n\nTip: export your data first if you might need it.'))return;
+    if(!confirm('Clear current data?\n\nSquad and match set-up will be kept.\n\nThis clears the rotation plan (incl. goalkeeper picks), stopwatch, score, goals/assists, event log, the current player of the match picks and notes, and ALL saved season matches.\n\nThe Player of the match tracker is kept (any current pick is added to it first).\n\nTip: export your data first if you might need it.'))return;
+    recordPotm(); // keep this match's pick in the tracker before clearing
     var home=S.md&&S.md.home!=null?S.md.home:'My team';
     S.result=null;S.gkOverrides={};S.adjust={};S.seed=1;S.matches=[];S.potm={ids:[],names:{},notes:''};
     S.clock=FPT.newClock();S.md={home:home,away:'',events:[]};
     sel=null;lastBlock=null;
     $('opponent').value='';var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     save();renderAll();tick();toast('Current data cleared – squad and match set-up kept.');};
-  $('resetAll').onclick=function(){if(!confirm('Reset squad, settings, plan and season data?'))return;S=JSON.parse(JSON.stringify(defaults));save();renderAll();};
+  $('resetAll').onclick=function(){if(!confirm('Reset squad, settings, plan, season data and the player of the match tracker?'))return;S=JSON.parse(JSON.stringify(defaults));save();renderAll();};
   $('resetSeason').onclick=function(){if(!confirm('Clear all saved season matches?'))return;S.matches=[];save();renderSeason();};
   if(!$('matchDate').value){var d=new Date();$('matchDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   if(!S.players.length&&!localStorage.getItem(KEY)){
