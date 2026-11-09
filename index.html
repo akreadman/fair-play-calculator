@@ -21,6 +21,11 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Ar
 header{background:linear-gradient(135deg,#1f8f4e,#156b3a);color:#fff;padding:20px 16px}
 header h1{margin:0;font-size:1.45rem}
 header p{margin:4px 0 0;opacity:.9;font-size:.95rem}
+/* quick jump buttons under the title */
+.jumpnav{max-width:1100px;margin:0 auto;padding:12px 16px 0;display:flex;flex-wrap:wrap;gap:8px}
+.jumpnav button{min-height:44px;padding:8px 16px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent);background:#fff;font-weight:600;touch-action:manipulation}
+.jumpnav button:hover{background:var(--accent2)}
+#matchCard,#planCard,#blockByBlock{scroll-margin-top:12px}
 main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
 main>.card{min-width:0}
 @media(min-width:900px){main{grid-template-columns:360px minmax(0,1fr)}.full{grid-column:1/-1}}
@@ -204,6 +209,10 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <h1>⚽ Fair Playing-Time Calculator</h1>
   <p>Share minutes fairly across your grassroots squad, build a rotation plan and track playing time over the season.</p>
 </header>
+<nav class="jumpnav no-print" aria-label="Jump to section">
+  <button type="button" data-jump="matchCard">⏱ Match day</button>
+  <button type="button" data-jump="blockByBlock">📋 Block by block</button>
+</nav>
 
 <main>
 <section class="card no-print" id="squadCard">
@@ -693,7 +702,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
         '<div class="gkgrid no-print">'+R.gkByPeriod.map(function(id,p){return '<div><label for="gkp'+p+'">'+esc(periodName(p))+'</label><select id="gkp'+p+'" data-gkp="'+p+'">'+opts(p)+'</select></div>';}).join('')+'</div>'+
         '<p class="print-only"><b>Goalkeepers:</b> '+R.gkByPeriod.map(function(id,p){return esc(periodName(p))+' – '+esc(nameOf(id));}).join(' · ')+'</p>';
     }
-    h+='<h3>Block by block</h3><p class="note no-print" style="margin-top:0">✋ Drag a player onto another (or tap one, then another) to swap them within a block. Minutes update live. '+
+    h+='<h3 id="blockByBlock">Block by block</h3><p class="note no-print" style="margin-top:0">✋ Drag a player onto another (or tap one, then another) to swap them within a block. Minutes update live. '+
       (R.edited?'<span class="badge b-warn">Manually adjusted</span> <button class="small" id="discardEdits">Discard changes</button>':'')+'</p><div class="tablewrap"><table class="blocks"><thead><tr><th>Block</th><th class="tcol">Time</th><th><span class="lg">On the pitch</span><span class="sm">On</span></th><th>Off</th><th><span class="lg">Changes</span><span class="sm">Subs</span></th></tr></thead><tbody>';
     var prev=null;
     R.plan.forEach(function(seg,j){
@@ -953,6 +962,11 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   // ---------- Export / import ----------
   function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();
     setTimeout(function(){URL.revokeObjectURL(url);a.remove();},2000);}
+  // Quick jump buttons (Block by block falls back to the Rotation plan card when no plan is generated yet)
+  document.querySelector('.jumpnav').addEventListener('click',function(e){var b=e.target.closest('[data-jump]');if(!b)return;
+    var t=$(b.dataset.jump)||(b.dataset.jump==='blockByBlock'?$('planCard'):null);if(!t)return;
+    var smooth=!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+    t.scrollIntoView({behavior:smooth?'smooth':'auto',block:'start'});});
   $('exportData').onclick=function(){
     ensureMd();var t=now(),payload=FPT.buildExport(S,t),name=FPT.exportFilename(new Date(t));
     var json=JSON.stringify(payload,null,2),blob=new Blob([json],{type:'application/json'});
