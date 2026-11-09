@@ -21,7 +21,7 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Ar
 header{background:linear-gradient(135deg,#1f8f4e,#156b3a);color:#fff;padding:20px 16px}
 header h1{margin:0;font-size:1.45rem}
 header p{margin:4px 0 0;opacity:.9;font-size:.95rem}
-/* quick jump buttons under the title */
+/* Expand all / Collapse all buttons under the title */
 .jumpnav{max-width:1100px;margin:0 auto;padding:12px 16px 0;display:flex;flex-wrap:wrap;gap:8px}
 .jumpnav button{min-height:44px;padding:8px 16px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent);background:#fff;font-weight:600;touch-action:manipulation}
 .jumpnav button:hover{background:var(--accent2)}
@@ -37,7 +37,8 @@ h2{font-size:1.1rem;margin:0 0 12px}
 .ctoggle .chint{flex:1;min-width:0;font-size:.85rem;font-weight:400;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .ctoggle .chev{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--line);border-radius:50%;font-size:.9rem;color:var(--accent);transition:transform .15s}
 .collapsible.collapsed .ctoggle .chev{transform:rotate(-90deg)}
-.collapsible.collapsed>:not(h2){display:none!important}
+@media screen{.collapsible.collapsed>:not(h2){display:none!important}}
+@media print{.ctoggle .chint,.ctoggle .chev{display:none!important}.ctoggle{min-height:0;margin:0;padding:0}}
 .collapsible.collapsed>h2{margin-bottom:0}
 .collapsible.collapsed>h2 .ctoggle{margin:-8px 0}
 .collapsible:not(.collapsed) .chint{visibility:hidden}
@@ -219,9 +220,9 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <h1>⚽ Fair Playing-Time Calculator</h1>
   <p>Share minutes fairly across your grassroots squad, build a rotation plan and track playing time over the season.</p>
 </header>
-<nav class="jumpnav no-print" aria-label="Jump to section">
-  <button type="button" data-jump="matchCard">⏱ Match day</button>
-  <button type="button" data-jump="blockByBlock">📋 Block by block</button>
+<nav class="jumpnav no-print" aria-label="Show or hide all sections">
+  <button type="button" data-all="open">⊞ Expand all</button>
+  <button type="button" data-all="close">⊟ Collapse all</button>
 </nav>
 
 <main>
@@ -256,8 +257,8 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   </div>
 </section>
 
-<section class="card full" id="matchCard">
-  <h2>Match day</h2>
+<section class="card full collapsible" id="matchCard" data-collapse="match">
+  <h2><button type="button" class="ctoggle" aria-expanded="true"><span>Match day</span><span class="chint" id="matchHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <div class="scoreboard">
     <div class="team"><input type="text" id="homeName" class="teamname" aria-label="Home team name" placeholder="Home team">
       <div class="bigscore" id="homeScore">0</div>
@@ -287,17 +288,17 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   </div>
 </section>
 
-<section class="card full" id="planCard">
+<section class="card full collapsible" id="planCard" data-collapse="plan">
   <div class="print-only"><h1 style="margin:0 0 4px">Rotation plan</h1><p id="printMeta" class="note"></p></div>
-  <h2 class="no-print">Rotation plan</h2>
+  <h2 class="no-print"><button type="button" class="ctoggle" aria-expanded="true"><span>Rotation plan</span><span class="chint" id="planHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <div id="planOut"><p class="note">Add your squad and press “Generate rotation plan”.</p></div>
   <div class="actions no-print" id="planActions" hidden>
     <button id="printBtn">🖨️ Print plan</button>
   </div>
 </section>
 
-<section class="card full no-print" id="potmCard">
-  <h2>⭐ Player of the match</h2>
+<section class="card full no-print collapsible" id="potmCard" data-collapse="potm">
+  <h2><button type="button" class="ctoggle" aria-expanded="true"><span>⭐ Player of the match</span><span class="chint" id="potmHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <p class="note" style="margin-top:0">Tap to pick one or more players. Tap again to unpick.</p>
   <div class="potmgrid" id="potmGrid"></div>
   <p class="note" id="potmSummary" style="margin:8px 0 0"></p>
@@ -305,8 +306,8 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <textarea id="potmNotes" rows="4" placeholder="e.g. Brilliant work rate, two great saves, always encouraging teammates…"></textarea></div>
 </section>
 
-<section class="card full no-print" id="seasonCard">
-  <h2>Season tracker</h2>
+<section class="card full no-print collapsible" id="seasonCard" data-collapse="season">
+  <h2><button type="button" class="ctoggle" aria-expanded="true"><span>Season tracker</span><span class="chint" id="seasonHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <div class="grid2" style="max-width:520px">
     <div><label for="matchDate">Match date</label><input type="date" id="matchDate"></div>
     <div><label for="opponent">Opponent</label><input type="text" id="opponent" placeholder="e.g. Riverside Rovers"></div>
@@ -317,20 +318,20 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
   <div id="seasonOut"></div>
 </section>
 
-<section class="card full no-print" id="potmHistCard">
-  <h2>⭐ Player of the match tracker</h2>
+<section class="card full no-print collapsible" id="potmHistCard" data-collapse="potmHist">
+  <h2><button type="button" class="ctoggle" aria-expanded="true"><span>⭐ Player of the match tracker</span><span class="chint" id="potmHistHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <p class="note" style="margin-top:0">A record of every player of the match, newest first. Added when you save a match to the season with a player of the match picked. Kept when you use “Clear current data” or “Clear season data”.</p>
   <div id="potmHistOut"></div>
 </section>
 
-<section class="card full no-print">
+<section class="card full no-print collapsible" id="dataCard" data-collapse="data">
+  <h2><button type="button" class="ctoggle" aria-expanded="true"><span>Your data</span><span class="chint" id="dataHint"></span><span class="chev" aria-hidden="true">▼</span></button></h2>
   <details>
     <summary>How the calculation works</summary>
     <p>Total pitch-minutes = players on pitch × match length. Each available player's fair share is that figure divided by the number of available players. With a fixed keeper, the keeper plays the whole match and the outfield minutes are shared among everyone else.</p>
     <p>The plan is built block by block: in each sub window, the players with the fewest minutes so far go on. Ties are broken in favour of anyone who sat out the previous block (so nobody sits out twice in a row where it can be avoided) and, if switched on, anyone short on season minutes. When the squad size doesn't divide evenly, some players will get one block more than others — the summary shows the spread.</p>
     <p>Season suggestions compare each player's minutes with their fair share of the matches they were available for.</p>
   </details>
-  <h3>Your data</h3>
   <p class="note" style="margin-top:0">Everything is stored in this browser only. Export a backup file (squad, settings, plan, current match, player of the match, tracker and season) or restore one on another device. “Clear current data” keeps your squad, match set-up and the Player of the match tracker, but clears the plan, match day, current player of the match picks and season.</p>
   <div class="actions"><button id="exportData">⬇️ Export data</button><button id="importData">⬆️ Import data</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
   <div class="actions"><button class="danger" id="clearCurrent" title="Keeps your squad, match set-up and player of the match tracker; clears the plan, match day and season data">🧹 Clear current data</button><button class="danger" id="resetAll">Reset everything</button><button class="danger" id="resetSeason">Clear season data</button></div>
@@ -649,7 +650,19 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     document.querySelectorAll('.collapsible[data-collapse]').forEach(function(sec){var c=!!S.collapsed[sec.dataset.collapse];sec.classList.toggle('collapsed',c);var b=sec.querySelector('.ctoggle');if(b)b.setAttribute('aria-expanded',String(!c));});
     var here=S.players.filter(function(p){return !p.absent;}).length,n=S.players.length;
     $('squadHint').textContent=n+' player'+(n===1?'':'s')+(here!==n?' · '+here+' here':'');
-    $('setupHint').textContent=S.onPitch+'-a-side · '+S.periods+' × '+S.periodMins+' min'; }
+    $('setupHint').textContent=S.onPitch+'-a-side · '+S.periods+' × '+S.periodMins+' min';
+    updateHints(); }
+  function setHint(id,t){var e=$(id);if(e&&e.textContent!==t)e.textContent=t;}
+  // short summaries shown next to a collapsed card's heading
+  function updateHints(){
+    if(S.md&&S.clock){var sc=FPT.score(S.md),c=S.clock,pe=FPT.periodElapsed(c,now());
+      setHint('matchHint',sc.home+'–'+sc.away+((pe>0||c.period>0)?' · '+pName(c.period)+' '+FPT.fmtClock(pe)+(c.running?' ▶':''):''));}
+    else setHint('matchHint','0–0');
+    var R=S.result;setHint('planHint',R?'plan ready · '+R.available.length+' players':'no plan yet');
+    var P=S.potm&&Array.isArray(S.potm.ids)?S.potm.ids:[];setHint('potmHint',P.length?P.map(potmName).join(', '):'none selected');
+    var m=(S.matches||[]).length;setHint('seasonHint',m+' match'+(m===1?'':'es'));
+    var hn=Array.isArray(S.potmHistory)?S.potmHistory.length:0;setHint('potmHistHint',hn+' entr'+(hn===1?'y':'ies'));
+    setHint('dataHint','export, import & reset'); }
   function renderPlayers(){
     var ul=$('playerList');
     if(!S.players.length){ul.innerHTML='<li class="note" style="border:none">No players yet.</li>';}
@@ -822,7 +835,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     $('watchInfo').textContent=info;
     $('watchStart').textContent=c.running?'⏸ Pause':(pe>0?'▶ Resume':'▶ Start');
     $('watchNext').disabled=c.period>=nP-1;
-    refreshActual();
+    refreshActual();updateHints();
     if(b!==lastBlock){lastBlock=b;document.querySelectorAll('#planOut tr[data-row]').forEach(function(tr){tr.classList.toggle('current-block',+tr.dataset.row===b);});renderGrid();}
   }
   function fmtM(m){return (Math.round(m*10)/10).toString().replace(/\.0$/,'');}
@@ -980,11 +993,11 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   // ---------- Export / import ----------
   function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();
     setTimeout(function(){URL.revokeObjectURL(url);a.remove();},2000);}
-  // Quick jump buttons (Block by block falls back to the Rotation plan card when no plan is generated yet)
-  document.querySelector('.jumpnav').addEventListener('click',function(e){var b=e.target.closest('[data-jump]');if(!b)return;
-    var t=$(b.dataset.jump)||(b.dataset.jump==='blockByBlock'?$('planCard'):null);if(!t)return;
-    var smooth=!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-    t.scrollIntoView({behavior:smooth?'smooth':'auto',block:'start'});});
+  // Expand all / Collapse all (under the title)
+  document.querySelector('.jumpnav').addEventListener('click',function(e){var b=e.target.closest('[data-all]');if(!b)return;
+    var close=b.dataset.all==='close';S.collapsed=S.collapsed&&typeof S.collapsed==='object'?S.collapsed:{};
+    document.querySelectorAll('.collapsible[data-collapse]').forEach(function(sec){S.collapsed[sec.dataset.collapse]=close;});
+    save();renderCollapse();toast(close?'All sections collapsed.':'All sections expanded.');});
   $('exportData').onclick=function(){
     ensureMd();var t=now(),payload=FPT.buildExport(S,t),name=FPT.exportFilename(new Date(t));
     var json=JSON.stringify(payload,null,2),blob=new Blob([json],{type:'application/json'});
