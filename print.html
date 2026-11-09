@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rotation plan – Fair Play Calculator</title>
+<style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:24px;color:#1d2733}</style>
+</head>
+<body>
+<p id="msg">Loading your rotation plan…</p>
+<script>
+/* Printable copy of the rotation plan, opened from the installed app (window.print() doesn't work inside an
+   iPhone home-screen app). The plan travels in the URL fragment, which is never sent to the server. */
+(function(){
+  function b64ToBytes(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var bin=atob(s),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+  function show(html){document.open();document.write(html);document.close();}
+  function fail(){document.getElementById('msg').textContent='Sorry – this print link is incomplete. Go back to the app and press “Print plan” again.';}
+  var h=location.hash.slice(1),m=/^([zu])=(.+)$/.exec(h);if(!m){fail();return;}
+  try{
+    var bytes=b64ToBytes(m[2]);
+    if(m[1]==='u'){show(new TextDecoder().decode(bytes));return;}
+    var ds=new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+    ds.text().then(show).catch(fail);
+  }catch(e){fail();}
+})();
+</script>
+</body>
+</html>

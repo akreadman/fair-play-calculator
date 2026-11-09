@@ -971,7 +971,38 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     if(sel&&sel.j===j&&sel.id!==id){var r=FPT.swapInBlock(S.result,j,sel.id,id);if(!r.ok){toast(r.msg);sel=null;renderPlan();}else applyEdit(r);return;}
     sel=(sel&&sel.j===j&&sel.id===id)?null:{j:j,id:id};renderPlan();if(sel)toast('Now tap a player in the other column of the same block to swap.');
   });
-  $('printBtn').onclick=function(){renderPlan();window.print();};
+  // Print plan. Desktop / normal browsers: window.print(). iPhone/iPad home-screen app: window.print() does nothing there,
+  // so build a self-contained printable page and open it in Safari's viewer (print.html, plan carried in the URL fragment).
+  function isIOS(){return /iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+  function isStandalone(){return navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);}
+  function printableHtml(){
+    var css=(document.querySelector('style')||{}).textContent||'';
+    var box=document.createElement('div');box.innerHTML=$('planOut').innerHTML;
+    var live=$('planOut').querySelectorAll('select'),copy=box.querySelectorAll('select');
+    copy.forEach(function(sel,i){var o=live[i]&&live[i].selectedOptions[0];var b=document.createElement('b');b.textContent=o?o.textContent:'';sel.replaceWith(b);});
+    box.querySelectorAll('.no-print,button').forEach(function(x){x.remove();});
+    return '<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rotation plan'+($('opponent').value?' v '+esc($('opponent').value):'')+'</title><style>'+css+
+      '\nbody{background:#fff}.print-only{display:block}.pbar{background:#fff6d6;border:1px solid #e0a800;border-radius:10px;padding:10px 12px;margin:0 0 14px;font-size:.95rem}.pbar button{margin-left:8px}@media print{.pbar{display:none}}</style></head><body><main style="display:block;max-width:900px;padding:16px">'+
+      '<div class="pbar">To print: tap the <b>Share</b> button <span aria-hidden="true">⬆︎</span> then <b>Print</b>.<button class="small primary" onclick="window.print()">🖨️ Print</button></div>'+
+      '<section class="card full" style="border:none;box-shadow:none;padding:0"><h1 style="margin:0 0 4px">Rotation plan</h1><p class="note">'+esc($('printMeta').textContent)+'</p><div id="planOut">'+box.innerHTML+'</div></section></main>'+
+      '<script>setTimeout(function(){try{window.print();}catch(e){}},700);<\/script></body></html>';
+  }
+  function b64url(bytes){var bin='';for(var i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+  function printFileName(){var d=$('matchDate').value||new Date().toISOString().slice(0,10),o=($('opponent').value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');return 'rotation-plan-'+d+(o?'-'+o:'')+'.html';}
+  function openPrintable(html){
+    var raw=new TextEncoder().encode(html);
+    var go=function(frag){var w=null;try{w=window.open('print.html#'+frag,'_blank');}catch(e){}
+      if(!w){downloadBlob(new Blob([html],{type:'text/html'}),printFileName());toast('Saved '+printFileName()+' – open it and use Share → Print.');}
+      else toast('Opening a printable copy – use Share → Print if the print sheet doesn’t appear.');};
+    if(window.CompressionStream){new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()
+      .then(function(b){go('z='+b64url(new Uint8Array(b)));}).catch(function(){go('u='+b64url(raw));});}
+    else go('u='+b64url(raw));
+  }
+  $('printBtn').onclick=function(){
+    if(S.collapsed&&S.collapsed.plan){S.collapsed.plan=false;save();renderCollapse();}
+    renderPlan();
+    if(isIOS()&&isStandalone()){openPrintable(printableHtml());return;}
+    window.print();};
   $('adjustOut').addEventListener('input',function(e){var id=e.target.dataset.adj;if(!id)return;var v=parseFloat(e.target.value);S.adjust[id]=isNaN(v)?0:v;save();});
   $('potmGrid').addEventListener('click',function(e){var b=e.target.closest('[data-potm]');if(!b)return;var P=ensurePotm(),id=b.dataset.potm,i=P.ids.indexOf(id);
     if(i>=0){P.ids.splice(i,1);delete P.names[id];}else{P.ids.push(id);P.names[id]=potmName(id);}

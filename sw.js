@@ -1,10 +1,11 @@
 /* Fair Play Calculator service worker – cache-first app shell.
    Bump VERSION on every release so clients pick up the new files. */
-const VERSION = 'v1.6.5';
+const VERSION = 'v1.6.6';
 const CACHE = 'fair-play-' + VERSION;
 const SHELL = [
   './',
   './index.html',
+  './print.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -44,7 +45,10 @@ self.addEventListener('fetch', (event) => {
   // Navigations: serve the cached shell (works offline), falling back to the network.
   if (req.mode === 'navigate') {
     event.respondWith(
-      caches.match('./index.html', { ignoreSearch: true }).then((cached) => cached || fetch(req))
+      // the page itself if cached (e.g. print.html), otherwise the app shell
+      caches.match(req, { ignoreSearch: true })
+        .then((cached) => cached || (url.pathname.endsWith('/print.html') ? fetch(req) : caches.match('./index.html', { ignoreSearch: true })))
+        .then((cached) => cached || fetch(req))
     );
     return;
   }
