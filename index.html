@@ -303,7 +303,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
     <div><label for="matchDate">Match date</label><input type="date" id="matchDate"></div>
     <div><label for="opponent">Opponent</label><input type="text" id="opponent" placeholder="e.g. Riverside Rovers"></div>
   </div>
-  <p class="note">Saving records the minutes from the current plan. You can adjust a player's minutes below before saving if the match didn't go to plan.</p>
+  <p class="note">Saving records each player's actual minutes played (from the match-day stopwatch and who was on in each block). If the stopwatch wasn't used, the planned minutes are saved instead. You can adjust a player's minutes below before saving.</p>
   <div id="adjustOut"></div>
   <div class="actions"><button class="primary" id="saveMatch">Save match to season</button></div>
   <div id="seasonOut"></div>
@@ -480,7 +480,27 @@ var FPT = (function(){
   function clockStart(c,now){ if(c.running) return c; return Object.assign({},c,{running:true,startedAt:now}); }
   function clockPause(c,now){ if(!c.running) return c; return Object.assign({},c,{running:false,startedAt:null,acc:periodElapsed(c,now)}); }
   function clockNextPeriod(c,now,periods){ if(c.period>=periods-1) return clockPause(c,now);
-    var e=periodElapsed(c,now); return {running:false,startedAt:null,acc:0,period:c.period+1,prevMs:c.prevMs+e}; }
+    var e=periodElapsed(c,now), pm=Array.isArray(c.periodMs)?c.periodMs.slice():[]; pm[c.period]=e;
+    return {running:false,startedAt:null,acc:0,period:c.period+1,prevMs:c.prevMs+e,periodMs:pm}; }
+  // Real length (ms) of each period so far. Completed periods use clock.periodMs (stored on "Next period");
+  // for older clocks without that history, the remaining prevMs is shared out in order, each capped at the
+  // scheduled length except the last unknown one (never invents time: the total always equals prevMs).
+  function periodDurations(c,now,periodMins){ c=c||newClock(); var out=[], pm=Array.isArray(c.periodMs)?c.periodMs:[], sched=Math.max(0,(periodMins||0)*60000);
+    var known=0, unknown=[];
+    for(var p=0;p<c.period;p++){ if(typeof pm[p]==='number'&&pm[p]>=0){ out[p]=pm[p]; known+=pm[p]; } else unknown.push(p); }
+    var rest=Math.max(0,(c.prevMs||0)-known);
+    unknown.forEach(function(p,i){ var d=i===unknown.length-1?rest:Math.min(rest,sched); out[p]=d; rest-=d; });
+    out[c.period]=periodElapsed(c,now); return out; }
+  // Actual minutes on the pitch per player, from the plan blocks and the real time played in each period.
+  // Completed blocks count in full, the current block counts its elapsed part, future blocks count 0.
+  // The last block of a period absorbs overtime and is cut short if the period was ended early.
+  function actualMinutes(plan,c,now,periodMins){ var out={}; if(!plan||!plan.length) return out;
+    plan.forEach(function(s){ s.on.forEach(function(id){ if(!(id in out)) out[id]=0; }); s.off.forEach(function(id){ if(!(id in out)) out[id]=0; }); });
+    var d=periodDurations(c,now,periodMins);
+    plan.forEach(function(s,j){ var dur=d[s.period]; if(!dur) return; var t=dur/60000, last=!(plan[j+1]&&plan[j+1].period===s.period);
+      var got=Math.max(0,t-s.start); if(!last) got=Math.min(got,s.len); if(got<=0) return;
+      s.on.forEach(function(id){ out[id]+=got; }); });
+    return out; }
   function fmtClock(ms){ var s=Math.floor(Math.max(0,ms)/1000), m=Math.floor(s/60); return (m<10?'0':'')+m+':'+(s%60<10?'0':'')+(s%60); }
   // index of the sub window in the plan for the current clock (last block of the period absorbs overtime)
   function currentBlock(plan,c,now){ if(!plan) return -1; var t=periodElapsed(c,now)/60000, best=-1;
@@ -562,7 +582,7 @@ var FPT = (function(){
   }
   function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
   function shuffle(arr,rnd){for(var i=arr.length-1;i>0;i--){var j=Math.floor(rnd()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
-  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,subAlertDue:subAlertDue,clockPause:clockPause,clockNextPeriod:clockNextPeriod,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats,APP_VERSION:APP_VERSION,exportFilename:exportFilename,buildExport:buildExport,parseImport:parseImport};
+  return {buildSegments:buildSegments,generatePlan:generatePlan,recompute:recompute,swapInBlock:swapInBlock,moveInBlock:moveInBlock,reorder:reorder,seasonSummary:seasonSummary,suggestExtra:suggestExtra,newClock:newClock,periodElapsed:periodElapsed,matchElapsed:matchElapsed,clockStart:clockStart,subAlertDue:subAlertDue,clockPause:clockPause,clockNextPeriod:clockNextPeriod,periodDurations:periodDurations,actualMinutes:actualMinutes,fmtClock:fmtClock,currentBlock:currentBlock,addEvent:addEvent,removeEvent:removeEvent,undoLast:undoLast,score:score,playerStats:playerStats,APP_VERSION:APP_VERSION,exportFilename:exportFilename,buildExport:buildExport,parseImport:parseImport};
 })();
 if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
 </script>
@@ -677,11 +697,12 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
       prev=seg;
     });
     h+='</tbody></table></div>';
-    h+='<h3>Minutes per player</h3><div class="tablewrap"><table class="mins"><thead><tr><th>Player</th><th class="num"><span class="lg">Minutes</span><span class="sm">Mins</span></th><th class="num"><span class="lg">vs fair share</span><span class="sm">+/−</span></th><th>Share</th><th class="num"><span class="lg">Blocks off</span><span class="sm">Off</span></th>'+(R.gkMode==='rotate'?'<th class="num"><span class="lg">GK periods</span><span class="sm">GK</span></th>':'')+'</tr></thead><tbody>';
+    h+='<h3>Minutes per player</h3><div class="tablewrap"><table class="mins"><thead><tr><th>Player</th><th class="num"><span class="lg">Minutes</span><span class="sm">Mins</span></th><th class="num" title="Actual minutes on the pitch so far, from the match-day stopwatch"><span class="lg">Played so far</span><span class="sm">Played</span></th><th class="num"><span class="lg">vs fair share</span><span class="sm">+/−</span></th><th>Share</th><th class="num"><span class="lg">Blocks off</span><span class="sm">Off</span></th>'+(R.gkMode==='rotate'?'<th class="num"><span class="lg">GK periods</span><span class="sm">GK</span></th>':'')+'</tr></thead><tbody>';
+    var act=actualNow();
     ids.slice().sort(function(a,b){return R.minutes[b]-R.minutes[a]||nameOf(a).localeCompare(nameOf(b));}).forEach(function(id){
       var m=R.minutes[id], target=id===R.fixedGk?R.matchMins:R.outfieldFair, d=m-target;
       var offN=R.plan.filter(function(s){return s.off.indexOf(id)>=0;}).length;
-      h+='<tr><td>'+esc(nameOf(id))+(id===R.fixedGk?' <span class="tag gk">🧤 GK</span>':'')+'</td><td class="num"><b>'+fmt(m)+'</b></td>'+
+      h+='<tr><td>'+esc(nameOf(id))+(id===R.fixedGk?' <span class="tag gk">🧤 GK</span>':'')+'</td><td class="num"><b>'+fmt(m)+'</b></td><td class="num actual" data-act="'+id+'">'+fmt(act[id]||0)+'</td>'+
         '<td class="num '+(Math.abs(d)<0.05?'':(d<0?'off':'on'))+'">'+(d>=0.05?'+':'')+fmt(d)+'</td>'+
         '<td><div class="bar"><i style="width:'+Math.min(100,m/R.matchMins*100)+'%"></i></div></td>'+
         '<td class="num">'+offN+(R.doubleBench[id]?' ⚠️':'')+'</td>'+(R.gkMode==='rotate'?'<td class="num">'+(R.gkCount[id]||0)+'</td>':'')+'</tr>';
@@ -692,10 +713,10 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
   }
   function renderSeason(){
     var R=S.result,adj=$('adjustOut');
-    if(R){
+    if(R){var act=actualNow();
       adj.innerHTML='<details><summary>Adjust actual minutes before saving</summary><div class="grid2" style="margin-top:8px">'+R.available.filter(function(id){return S.players.some(function(p){return p.id===id;});}).map(function(id){
-        var v=S.adjust[id]!=null?S.adjust[id]:R.minutes[id];
-        return '<div><label>'+esc(nameOf(id))+'</label><input type="number" min="0" max="'+R.matchMins+'" step="0.5" data-adj="'+id+'" value="'+v+'"></div>';}).join('')+'</div></details>';
+        var v=saveMinutes(id,act);
+        return '<div><label>'+esc(nameOf(id))+'</label><input type="number" min="0" step="0.1" data-adj="'+id+'" value="'+v+'"></div>';}).join('')+'</div></details>';
     } else adj.innerHTML='<p class="note">Generate a plan first, then save it here after the match.</p>';
     var ids=S.players.map(function(p){return p.id;}), sum=FPT.seasonSummary(ids,S.matches);
     var h='';
@@ -739,6 +760,14 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     if(e.target.value)S.gkOverrides[p]=e.target.value;else delete S.gkOverrides[p];save();generate();});
   // ---------- Match day ----------
   function now(){return Date.now();}
+  function actualNow(){ensureMd();return S.result?FPT.actualMinutes(S.result.plan,S.clock,now(),S.periodMins):{};}
+  function clockUsed(){ensureMd();return FPT.matchElapsed(S.clock,now())>0;}
+  function r1(m){return Math.round(m*10)/10;}
+  // minutes that "Save match to season" will record: manual edits win, else actual minutes once the clock has run, else the plan
+  function saveMinutes(id,act){var R=S.result;if(S.adjust[id]!=null)return S.adjust[id];return clockUsed()?r1(act[id]||0):R.minutes[id];}
+  function refreshActual(){if(!S.result)return;var act=actualNow();
+    document.querySelectorAll('#planOut td[data-act]').forEach(function(td){var v=fmt(act[td.dataset.act]||0);if(td.textContent!==v)td.textContent=v;});
+    document.querySelectorAll('#adjustOut input[data-adj]').forEach(function(inp){var id=inp.dataset.adj;if(S.adjust[id]!=null||document.activeElement===inp)return;var v=String(saveMinutes(id,act));if(inp.value!==v)inp.value=v;});}
   function curBlockIdx(){ensureMd();var R=S.result;if(!R)return -1;var c=S.clock;if(!c.running&&c.acc===0&&c.prevMs===0)return -1;return FPT.currentBlock(R.plan,c,now());}
   function pName(p){var n=S.result&&S.result.plan.length?S.result.plan[S.result.plan.length-1].period+1:S.periods;if(n===4)return 'Q'+(p+1);if(n===2)return p===0?'1st half':'2nd half';return 'P'+(p+1);}
   function wallStr(iso){var d=new Date(iso);return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
@@ -753,6 +782,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     $('watchStart').textContent=c.running?'⏸ Pause':(pe>0?'▶ Resume':'▶ Start');
     $('watchNext').disabled=c.period>=nP-1;
     checkSubAlert();
+    refreshActual();
     if(b!==lastBlock){if(!$('subAlertBar').hidden&&+$('subAlertBar').dataset.block!==b)$('subAlertBar').hidden=true;lastBlock=b;document.querySelectorAll('#planOut tr[data-row]').forEach(function(tr){tr.classList.toggle('current-block',+tr.dataset.row===b);});renderGrid();}
   }
   // ---------- Sub alert (1:00 before the next substitution) ----------
@@ -957,7 +987,7 @@ if(typeof module!=='undefined'&&module.exports){module.exports=FPT;}
     save();renderPotm();});
   $('potmNotes').addEventListener('input',function(){ensurePotm().notes=this.value;save();});
   $('saveMatch').onclick=function(){var R=S.result;if(!R){alert('Generate a plan first.');return;}
-    var mins={};R.available.forEach(function(id){mins[id]=S.adjust[id]!=null?S.adjust[id]:R.minutes[id];});
+    var act=actualNow(),mins={};R.available.forEach(function(id){mins[id]=saveMinutes(id,act);});
     ensureMd();var ps=FPT.playerStats(S.md),goals={},assists={};Object.keys(ps).forEach(function(id){if(ps[id].goals)goals[id]=ps[id].goals;if(ps[id].assists)assists[id]=ps[id].assists;});
     S.matches.push({date:$('matchDate').value||null,opponent:$('opponent').value.trim()||S.md.away,onPitch:R.onPitch,matchMins:R.matchMins,available:R.available.slice(),minutes:mins,
       goals:goals,assists:assists,score:FPT.score(S.md),events:S.md.events.slice(),home:S.md.home});
